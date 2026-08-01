@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Monolith SSH Simulator - Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "on-error-container": "#93000a",
+                "inverse-on-surface": "#f1f1f1",
+                "surface-container-high": "#e8e8e8",
+                "primary-fixed-dim": "#c6c6c6",
+                "outline-variant": "#cfc4c5",
+                "tertiary-container": "#1b1b1b",
+                "secondary": "#5e5e5e",
+                "primary": "#000000",
+                "secondary-container": "#e1dfdf",
+                "on-tertiary-fixed-variant": "#474747",
+                "on-background": "#1b1b1b",
+                "on-secondary": "#ffffff",
+                "on-error": "#ffffff",
+                "surface-variant": "#e2e2e2",
+                "secondary-fixed-dim": "#c7c6c6",
+                "primary-container": "#1b1b1b",
+                "surface-bright": "#f9f9f9",
+                "on-primary": "#ffffff",
+                "surface-container-low": "#f3f3f3",
+                "on-tertiary-fixed": "#1b1b1b",
+                "secondary-fixed": "#e4e2e2",
+                "surface-dim": "#dadada",
+                "background": "#f9f9f9",
+                "error-container": "#ffdad6",
+                "surface": "#f9f9f9",
+                "tertiary": "#000000",
+                "error": "#ba1a1a",
+                "surface-container": "#eeeeee",
+                "on-secondary-fixed": "#1b1c1c",
+                "on-primary-container": "#848484",
+                "surface-tint": "#5e5e5e",
+                "tertiary-fixed": "#e2e2e2",
+                "on-secondary-fixed-variant": "#464747",
+                "primary-fixed": "#e2e2e2",
+                "on-surface": "#1b1b1b",
+                "on-surface-variant": "#4c4546",
+                "on-tertiary-container": "#848484",
+                "on-tertiary": "#ffffff",
+                "surface-container-highest": "#e2e2e2",
+                "tertiary-fixed-dim": "#c6c6c6",
+                "inverse-primary": "#c6c6c6",
+                "outline": "#7e7576",
+                "on-primary-fixed-variant": "#474747",
+                "surface-container-lowest": "#ffffff",
+                "on-secondary-container": "#626262",
+                "on-primary-fixed": "#1b1b1b",
+                "inverse-surface": "#303030"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.125rem",
+                "lg": "0.25rem",
+                "xl": "0.5rem",
+                "full": "0.75rem"
+        },
+        "spacing": {
+                "gutter": "16px",
+                "lg": "24px",
+                "sm": "12px",
+                "xs": "4px",
+                "xl": "48px",
+                "md": "16px",
+                "base": "8px",
+                "margin": "24px"
+        },
+        "fontFamily": {
+                "headline-md": [
+                        "Inter"
+                ],
+                "code-md": [
+                        "JetBrains Mono"
+                ],
+                "body-lg": [
+                        "Inter"
+                ],
+                "label-sm": [
+                        "Inter"
+                ],
+                "body-md": [
+                        "Inter"
+                ],
+                "headline-lg": [
+                        "Inter"
+                ]
+        },
+        "fontSize": {
+                "headline-md": [
+                        "24px",
+                        {
+                                "lineHeight": "1.3",
+                                "letterSpacing": "-0.01em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "code-md": [
+                        "14px",
+                        {
+                                "lineHeight": "1.5",
+                                "fontWeight": "400"
+                        }
+                ],
+                "body-lg": [
+                        "18px",
+                        {
+                                "lineHeight": "1.6",
+                                "fontWeight": "400"
+                        }
+                ],
+                "label-sm": [
+                        "12px",
+                        {
+                                "lineHeight": "1",
+                                "letterSpacing": "0.05em",
+                                "fontWeight": "500"
+                        }
+                ],
+                "body-md": [
+                        "16px",
+                        {
+                                "lineHeight": "1.6",
+                                "fontWeight": "400"
+                        }
+                ],
+                "headline-lg": [
+                        "32px",
+                        {
+                                "lineHeight": "1.2",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "600"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #ffffff; /* Pure white background enforced by prompt */
+        }
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1, 'wght' 300, 'GRAD' 0, 'opsz' 20;
+        }
+        
+        /* Subtle diffuse shadow for floating elements/cards */
+        .shadow-diffuse {
+            box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.04);
+        }
+        
+        /* Scrollbar styling for feed */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #ffffff;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #e2e2e2;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #c6c6c6;
+        }
+    </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface flex min-h-screen">
+<!-- SideNavBar -->
+<nav class="h-screen w-64 fixed left-0 top-0 bg-surface-container-lowest border-r border-surface-container flex flex-col h-full p-lg overflow-y-auto z-20">
+<div class="mb-xl">
+<div class="flex items-center gap-sm mb-xs">
+<span class="material-symbols-outlined text-primary text-[24px]">terminal</span>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">Monolith SSH</h1>
+</div>
+<p class="font-label-sm text-label-sm text-secondary">v2.4.0-stable</p>
+</div>
+<ul class="flex flex-col gap-sm flex-grow">
+<!-- Active Nav Item: Dashboard -->
+<li class="">
+<a class="flex items-center gap-sm py-sm cursor-pointer transition-all active:opacity-70 text-primary font-bold border-l-2 border-primary pl-xs -ml-[6px]" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+</li>
+<li class="">
+<a class="flex items-center gap-sm py-sm cursor-pointer transition-all active:opacity-70 text-secondary hover:text-primary transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">terminal</span>
+<span class="font-body-md text-body-md">Instances</span>
+</a>
+</li>
+<li class="">
+<a class="flex items-center gap-sm py-sm cursor-pointer transition-all active:opacity-70 text-secondary hover:text-primary transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">account_circle</span>
+<span class="font-body-md text-body-md">Profiles</span>
+</a>
+</li>
+<li class="">
+<a class="flex items-center gap-sm py-sm cursor-pointer transition-all active:opacity-70 text-secondary hover:text-primary transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">history</span>
+<span class="font-body-md text-body-md">Audit</span>
+</a>
+</li>
+</ul>
+<div class="mt-auto pt-lg border-t border-surface-container flex items-center gap-sm">
+<img alt="User status indicator" class="w-8 h-8 rounded-full border border-surface-container bg-surface-container-low object-cover" data-alt="A small, minimalist circular avatar placeholder showing a high-contrast abstract geometric pattern in pure black and white. The design is stark and professional, fitting a technical command-line interface aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBVa8D2JwgaBzkShm91kvwAe73yEcb4yBCCcMy5J-gryr7pMedFFEyKC8SYYvG_iFYhZ6_8E6Epl8JJxE7sUM6UpXeyC4ZDh-qXbL_SOrrn5N8aZ0ubPsc9-D3RRs51JMUmrJbA0JwpqVruVncRAb9wQcUgziwj49O052qymk28HnuD43LxE7J0e-syQ47xiOjdMp-ZAQwfXmHnDOJnEc8n6mDjUpKr3dTiPesil6tEziGxHC9EyCBJJw"/>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-primary">Admin User</span>
+<span class="font-label-sm text-label-sm text-secondary flex items-center gap-xs"><span class="w-2 h-2 rounded-full bg-primary block"></span> Online</span>
+</div>
+</div>
+</nav>
+<!-- Main Workspace -->
+<div class="flex-1 ml-64 flex flex-col bg-surface-container-lowest min-h-screen relative">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center h-16 px-lg sticky top-0 z-10 bg-surface-container-lowest border-b border-surface-container">
+<div>
+<!-- Brand text from JSON handled in styling -->
+</div>
+<div class="flex items-center gap-lg">
+<span class="font-label-sm text-label-sm text-primary">System: Online</span>
+<div class="flex items-center gap-sm text-secondary">
+<button class="hover:text-primary transition-opacity duration-150">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<button class="hover:text-primary transition-opacity duration-150">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 p-margin max-w-[1200px] w-full mx-auto">
+<!-- Header -->
+<div class="mb-lg border-b border-surface-container pb-sm flex justify-between items-end">
+<h2 class="font-body-lg text-body-lg text-primary">Overview</h2>
+<span class="font-code-md text-code-md text-secondary mono">Last updated: Just now</span>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+<!-- Data Cards (Row spanning full width) -->
+<div class="col-span-12 flex flex-row gap-lg mb-lg border-b border-surface-container pb-lg">
+<div class="flex-1">
+<div class="flex justify-between items-start mb-xs">
+<span class="font-label-sm text-label-sm text-secondary uppercase tracking-wider">Active Instances</span>
+<span class="material-symbols-outlined text-secondary text-[20px]">dns</span>
+</div>
+<div class="flex items-baseline gap-sm">
+<span class="font-headline-lg text-headline-lg text-primary font-bold">8</span>
+<span class="font-label-sm text-label-sm text-secondary mb-1">/ 12 allotted</span>
+</div>
+</div>
+<div class="w-[1px] bg-surface-container self-stretch mx-sm"></div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-xs">
+<span class="font-label-sm text-label-sm text-secondary uppercase tracking-wider">Online Connections</span>
+<span class="material-symbols-outlined text-secondary text-[20px]">cable</span>
+</div>
+<div class="flex items-baseline gap-sm">
+<span class="font-headline-lg text-headline-lg text-primary font-bold">42</span>
+<span class="font-label-sm text-label-sm text-secondary mb-1 flex items-center gap-xs"><span class="material-symbols-outlined text-[14px]">arrow_upward</span> 12%</span>
+</div>
+</div>
+<div class="w-[1px] bg-surface-container self-stretch mx-sm"></div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-xs">
+<span class="font-label-sm text-label-sm text-secondary uppercase tracking-wider">Total Intercepts</span>
+<span class="material-symbols-outlined text-secondary text-[20px]">security</span>
+</div>
+<div class="flex items-baseline gap-sm">
+<span class="font-headline-lg text-headline-lg text-primary font-bold">1,240</span>
+<span class="font-label-sm text-label-sm text-secondary mb-1">Last 30 days</span>
+</div>
+</div>
+</div>
+<!-- Left Column: Trend Chart (Spans 8 columns) -->
+<div class="col-span-12 lg:col-span-8 flex flex-col">
+<div class="bg-transparent flex-1 flex flex-col">
+<div class="border-b border-surface-container flex justify-between items-center pb-sm">
+<h3 class="font-body-md text-body-md text-primary">SSH Connection Requests</h3>
+<span class="font-label-sm text-label-sm text-secondary">Last 24h</span>
+</div>
+<!-- Chart Area Placeholder -->
+<div class="flex-1 min-h-[300px] relative flex flex-col justify-end gap-[1px] pt-lg">
+<!-- Y-axis labels -->
+<div class="absolute left-0 top-lg bottom-0 flex flex-col justify-between text-secondary font-code-md text-code-md text-[10px] mono">
+<span class="">100</span>
+<span class="">75</span>
+<span class="">50</span>
+<span class="">25</span>
+<span class="">0</span>
+</div>
+<!-- Bars simulating chart -->
+<div class="ml-[40px] h-[250px] flex items-end justify-between gap-1 z-10 border-b border-surface-container">
+<div class="w-full bg-secondary opacity-20 hover:opacity-100 hover:bg-primary transition-all cursor-crosshair h-[20%]" title="00:00 - 15 reqs"></div>
+<div class="w-full bg-secondary opacity-20 hover:opacity-100 hover:bg-primary transition-all cursor-crosshair h-[25%]" title="02:00 - 20 reqs"></div>
+<div class="w-full bg-secondary opacity-20 hover:opacity-100 hover:bg-primary transition-all cursor-crosshair h-[15%]" title="04:00 - 12 reqs"></div>
+<div class="w-full bg-secondary opacity-20 hover:opacity-100 hover:bg-primary transition-all cursor-crosshair h-[40%]" title="06:00 - 45 reqs"></div>
+<div class="w-full bg-primary h-[80%]" title="08:00 - 85 reqs (Peak)"></div>
+<div class="w-full bg-secondary opacity-20 hover:opacity-100 hover:bg-primary transition-all cursor-crosshair h-[60%]" title="10:00 - 62 reqs"></div>
+<div class="w-full bg-secondary opacity-20 hover:opacity-100 hover:bg-primary transition-all cursor-crosshair h-[55%]" title="12:00 - 58 reqs"></div>
+<div class="w-full bg-secondary opacity-20 hover:opacity-100 hover:bg-primary transition-all cursor-crosshair h-[45%]" title="14:00 - 48 reqs"></div>
+<div class="w-full bg-secondary opacity-20 hover:opacity-100 hover:bg-primary transition-all cursor-crosshair h-[70%]" title="16:00 - 75 reqs"></div>
+<div class="w-full bg-secondary opacity-20 hover:opacity-100 hover:bg-primary transition-all cursor-crosshair h-[90%]" title="18:00 - 92 reqs"></div>
+<div class="w-full bg-secondary opacity-20 hover:opacity-100 hover:bg-primary transition-all cursor-crosshair h-[50%]" title="20:00 - 52 reqs"></div>
+<div class="w-full bg-secondary opacity-20 hover:opacity-100 hover:bg-primary transition-all cursor-crosshair h-[30%]" title="22:00 - 35 reqs"></div>
+</div>
+<!-- X-axis labels -->
+<div class="ml-[40px] mt-xs flex justify-between text-secondary font-code-md text-code-md text-[10px] mono">
+<span class="">00:00</span>
+<span class="">06:00</span>
+<span class="">12:00</span>
+<span class="">18:00</span>
+<span class="">Now</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Real-time Activity Feed (Spans 4 columns) -->
+<div class="col-span-12 lg:col-span-4 flex flex-col pl-lg border-l border-surface-container">
+<div class="bg-transparent flex-1 flex flex-col h-[400px] lg:h-auto">
+<!-- Terminal-like Header -->
+<div class="pb-sm border-b border-surface-container flex justify-between items-center bg-transparent">
+<div class="flex gap-xs">
+<div class="w-2 h-2 rounded-full border border-secondary"></div>
+<div class="w-2 h-2 rounded-full border border-secondary"></div>
+<div class="w-2 h-2 rounded-full border border-secondary"></div>
+</div>
+<span class="font-code-md text-code-md text-[10px] text-secondary mono">activity_feed.log</span>
+<span class="material-symbols-outlined text-[14px] text-secondary">wifi_tethering</span>
+</div>
+<!-- Feed Content (Monospaced) -->
+<div class="pt-sm flex-1 overflow-y-auto font-code-md text-code-md text-[12px] mono flex flex-col gap-xs" id="activity-feed">
+<!-- Feed Items -->
+<div class="flex gap-sm pb-xs text-secondary opacity-50">
+<span class="whitespace-nowrap">10:42:01</span>
+<span class="truncate">Auth failure</span>
+<span class="ml-auto whitespace-nowrap">192.168.1.104 -&gt; srv-db-01</span>
+</div>
+<div class="flex gap-sm pb-xs text-secondary opacity-60">
+<span class="whitespace-nowrap">10:42:15</span>
+<span class="truncate">Connection closed</span>
+<span class="ml-auto whitespace-nowrap">10.0.0.5 -&gt; srv-web-02</span>
+</div>
+<div class="flex gap-sm pb-xs text-primary opacity-70">
+<span class="text-secondary whitespace-nowrap">10:43:22</span>
+<span class="font-medium truncate">Session opened</span>
+<span class="text-secondary ml-auto whitespace-nowrap">172.16.0.42 -&gt; srv-app-main</span>
+</div>
+<div class="flex gap-sm pb-xs text-secondary opacity-80">
+<span class="whitespace-nowrap">10:44:05</span>
+<span class="truncate">Key exchange init</span>
+<span class="ml-auto whitespace-nowrap">192.168.1.200 -&gt; srv-db-02</span>
+</div>
+<div class="flex gap-sm pb-xs text-primary opacity-90">
+<span class="text-secondary whitespace-nowrap">10:45:12</span>
+<span class="font-medium truncate">Auth success</span>
+<span class="text-secondary ml-auto whitespace-nowrap">10.0.0.12 -&gt; srv-cache-01</span>
+</div>
+<div class="flex gap-sm pb-xs text-primary">
+<span class="text-secondary whitespace-nowrap">10:45:18</span>
+<span class="truncate">Command exec</span>
+<span class="text-secondary ml-auto whitespace-nowrap">10.0.0.12 -&gt; srv-cache-01</span>
+</div>
+<!-- Active flashing line -->
+<div class="flex gap-sm mt-xs">
+<span class="text-secondary whitespace-nowrap">10:45:20</span>
+<span class="w-2 h-4 bg-primary animate-pulse"></span>
+</div>
+</div>
+<!-- Command Input -->
+<div class="pt-sm mt-sm border-t border-surface-container bg-surface-container-lowest">
+<div class="flex items-center gap-sm">
+<span class="text-primary font-code-md text-code-md mono">&gt;</span>
+<input class="w-full bg-transparent border-0 border-b border-primary p-0 focus:ring-0 font-code-md text-code-md mono text-[12px] placeholder:text-surface-tint" placeholder="Filter logs..." type="text"/>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>
