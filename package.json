@@ -11,6 +11,7 @@
     "start": "npm run build && electron .",
     "build": "vite build",
     "dist": "npm run build && electron-builder && npm run verify:installer",
+    "dist:win64": "npm run build && electron-builder --win nsis --x64 && npm run verify:installer",
     "check": "node --check electron/main.cjs && node --check electron/preload.cjs && node --check electron/mcp-sse-gateway.cjs && node --check electron/ssh-client-manager.cjs && node --check electron/credential-utils.cjs && node --check electron/credential-vault.cjs && node --check electron/port-diagnostics.cjs && node --check simulator/service.cjs && node --check simulator/service-core.cjs && node scripts/check-installer.cjs --config && vite build && node scripts/check-dist.cjs",
     "verify:installer": "node scripts/check-installer.cjs --artifact",
     "smoke:ssh": "node scripts/smoke-ssh.cjs",

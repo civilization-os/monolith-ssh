@@ -109,15 +109,29 @@ Linux 模拟器内置 24 组常用命令，包含目录与文件操作、系统�
 ```bash
 npm run build
 npm run dist
+npm run dist:win64
 ```
 
 - `npm run build` 构建渲染层至 `dist/`
 - `npm run dist` 生成 Windows 安装包至 `release/`
+- `npm run dist:win64` 仅生成 Windows x64 NSIS 安装包，用于 GitHub Release
 - `npm run check` 检查主进程、模拟服务语法、构建 UI，并验证 Electron 的相对资源路径
 - `npm run smoke:ssh` 使用真实 SSH 客户端验证 Linux、网络设备和交互终端链路
 - `npm run smoke:mcp` 验证 20 个工具、参数校验、现代 HTTP/SSE、传统 SSE、端口诊断和敏感值脱敏
 - `npm run smoke:bind` 验证 `127.0.0.1` 与 `0.0.0.0` 监听切换
 - `npm run smoke:ports` 验证端口冲突诊断、自动修复和恢复原端口
+
+## CI/CD 与发布
+
+- `.github/workflows/ci.yml` 在提交到 `main`、`agent/**` 或面向 `main` 的 PR 上使用 Windows x64 执行完整检查与冒烟测试。
+- `.github/workflows/release.yml` 在推送 `v*` 标签或手动触发时执行完整验证，只构建 Windows x64 的 `.exe` 安装包，并发布到 GitHub Release。
+- 发布标签必须与 `package.json` 中的版本一致，例如版本 `0.1.0` 对应标签 `v0.1.0`。
+- Release 附件包含 `MonolithSSH-<version>-Setup.exe` 与 `SHA256SUMS.txt`，不会上传 macOS、Linux 或其他 Windows 架构产物。
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
 
 Electron 主进程位于 `electron/main.cjs`，SSH 模拟服务位于 `simulator/`，预加载桥接位于 `electron/preload.cjs`，渲染层入口位于 `src/main.js`。
 
