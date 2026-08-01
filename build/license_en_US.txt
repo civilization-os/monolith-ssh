@@ -1,0 +1,20 @@
+﻿MonolithSSH End User License Agreement
+
+Copyright (c) 2026 MonolithSSH Team. All rights reserved.
+
+1. License grant
+You may install and use MonolithSSH on computers you own or control for lawful development, testing, training, and demonstration purposes.
+
+2. Restrictions
+You may not use the software to gain unauthorized access to systems or networks, remove proprietary notices, or distribute modified copies while representing them as an official MonolithSSH release.
+
+3. Local data and security
+MonolithSSH can create local SSH listeners, credentials, rules, audit records, and MCP SSE controls. You are responsible for the configuration, protection, and permitted use of these features. Review listening addresses and credentials before enabling access.
+
+4. No warranty
+The software is provided "as is", without warranties of any kind, to the maximum extent permitted by law.
+
+5. Limitation of liability
+To the maximum extent permitted by law, the authors and contributors are not liable for indirect, incidental, special, consequential, or punitive damages arising from use of the software.
+
+By installing or using MonolithSSH, you agree to these terms.

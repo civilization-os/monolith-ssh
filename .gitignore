@@ -1,0 +1,16 @@
+node_modules/
+dist/
+release/
+*.log
+.DS_Store
+Thumbs.db
+.playwright-cli/
+output/
+.reasonix/
+.monolith-data/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.bin

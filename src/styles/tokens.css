@@ -1,0 +1,125 @@
+:root {
+  color-scheme: light;
+
+  /* Color tokens */
+  --color-canvas: #f8f8f7;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f3f3f1;
+  --color-surface-hover: #ecece9;
+  --color-ink: #101110;
+  --color-text: #20211f;
+  --color-muted: #62655f;
+  --color-faint: #a7aaa4;
+  --color-border: #dedfdb;
+  --color-border-strong: #181918;
+  --color-success: #2f6f50;
+  --color-success-surface: #edf7f1;
+  --color-warning: #8a5a00;
+  --color-warning-surface: #fff8e6;
+  --color-danger: #b42318;
+  --color-focus: rgba(16, 17, 16, 0.16);
+  --color-overlay: rgba(16, 17, 16, 0.58);
+  --color-shadow: rgba(16, 17, 16, 0.05);
+  --color-terminal-background: #111210;
+  --color-terminal-surface: #191a18;
+  --color-terminal-surface-hover: #232521;
+  --color-terminal-foreground: #e7e8e3;
+  --color-terminal-muted: #8b8f86;
+  --color-terminal-cursor: #f4f5ef;
+  --color-terminal-selection: rgba(231, 232, 227, 0.2);
+  --color-terminal-red: #e17b72;
+  --color-terminal-green: #84b897;
+  --color-terminal-yellow: #d1b56d;
+  --color-terminal-blue: #86a8c7;
+  --color-terminal-cyan: #83b7b1;
+  --color-terminal-magenta: #b99bc8;
+
+  /* Typography tokens */
+  --font-sans: Bahnschrift, 'Segoe UI Variable', 'Segoe UI', sans-serif;
+  --font-mono: 'Cascadia Mono', 'SFMono-Regular', Consolas, monospace;
+  --font-size-2xs: 0.625rem;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.25rem;
+  --font-size-xl: 1.5rem;
+  --font-size-2xl: 2rem;
+  --font-size-display: 2.5rem;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --line-height-tight: 1.2;
+  --line-height-body: 1.55;
+  --letter-spacing-tight: -0.025em;
+  --letter-spacing-label: 0.11em;
+
+  /* Spacing tokens: 4px base rhythm */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* Shape and elevation tokens */
+  --border-thin: 0.0625rem;
+  --border-strong: 0.125rem;
+  --radius-sm: 0.125rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.5rem;
+  --radius-round: 999rem;
+  --shadow-float: 0 var(--space-1) var(--space-5) var(--color-shadow);
+
+  /* Layout tokens */
+  --sidebar-width: 16rem;
+  --topbar-height: 5rem;
+  --window-titlebar-height: 2.25rem;
+  --window-titlebar-icon-size: 1.125rem;
+  --window-controls-width: 8.625rem;
+  --content-max-width: 75rem;
+  --profile-tree-width: 26.5rem;
+  --dashboard-aside-min-width: 18rem;
+  --profile-tree-min-width: 18rem;
+  --profile-editor-min-width: 28rem;
+  --control-height: 2.5rem;
+  --table-row-height: 4.25rem;
+  --terminal-height: 24rem;
+  --terminal-workspace-height: 38rem;
+  --terminal-sidebar-width: 15rem;
+  --terminal-tab-height: 3rem;
+  --chart-height: 21rem;
+  --rule-textarea-height: 6.25rem;
+  --credential-modal-width: 54rem;
+  --credential-key-height: 8rem;
+  --credential-private-key-height: 10rem;
+  --access-public-key-height: 6rem;
+  --credential-label-width: 9rem;
+  --conflict-details-height: 8rem;
+  --select-min-width: 8rem;
+  --select-menu-max-height: 18rem;
+  --select-menu-max-width: 80vw;
+  --select-option-height: 2.25rem;
+  --layer-content-sticky: 10;
+  --layer-sidebar: 20;
+  --layer-titlebar: 30;
+  --layer-modal: 40;
+  --layer-dropdown: 50;
+
+  /* Icon and interaction tokens */
+  --icon-size-sm: 1rem;
+  --icon-size-md: 1.25rem;
+  --icon-size-lg: 1.5rem;
+  --avatar-size: 2.5rem;
+  --status-dot-size: 0.4375rem;
+  --bar-gap: 0.25rem;
+  --xterm-font-size: 14;
+  --xterm-line-height: 1.5;
+  --xterm-letter-spacing: 0;
+  --transition-fast: 140ms ease;
+  --duration-instant: 0.01ms;
+  --opacity-disabled: 0.45;
+}

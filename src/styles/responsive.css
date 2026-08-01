@@ -1,0 +1,312 @@
+/*
+ * Breakpoints are centralized here because custom properties cannot be used
+ * in media-query conditions. Component values inside each query still use tokens.
+ */
+@media (max-width: 1080px) {
+  .editor-content {
+    padding-inline: var(--space-8);
+  }
+
+  .rule-line {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .rule-line .icon-button {
+    grid-column: 1;
+  }
+
+  .command-rule-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .command-rule-pattern {
+    grid-column: 1 / -1;
+  }
+
+  .profile-workspace {
+    grid-template-columns:
+      minmax(var(--profile-tree-min-width), 0.75fr)
+      minmax(var(--profile-editor-min-width), 1.25fr);
+    overflow-x: auto;
+  }
+
+  .builtin-command-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .system-variable-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+}
+
+@media (max-width: 960px) {
+  .window-titlebar__identity span,
+  .window-titlebar__identity > i {
+    display: none;
+  }
+
+  .sidebar {
+    width: var(--topbar-height);
+    padding-inline: var(--space-4);
+  }
+
+  .app-main {
+    margin-left: var(--topbar-height);
+  }
+
+  .sidebar__brand span,
+  .nav-item span,
+  .user-card > span:last-child {
+    display: none;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mcp-settings-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mcp-capability-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 820px) {
+  .metric-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .metric-card,
+  .metric-card:first-child,
+  .metric-card:last-child {
+    padding: var(--space-4) 0;
+    border-right: 0;
+    border-bottom: var(--border-thin) solid var(--color-border);
+  }
+
+  .metric-card:last-child {
+    border-bottom: 0;
+  }
+
+  .activity-panel {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .audit-toolbar {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .search-field {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .audit-export {
+    margin-left: 0;
+  }
+
+  .data-table__head {
+    display: none;
+  }
+
+  .data-table__row,
+  .data-table--instances .data-table__row,
+  .data-table--audit .data-table__row {
+    display: grid;
+    padding: var(--space-4);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+
+  .data-table__row > *::before {
+    display: block;
+    margin-bottom: var(--space-1);
+    color: var(--color-faint);
+    content: attr(data-label);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-2xs);
+    letter-spacing: var(--letter-spacing-label);
+    text-transform: uppercase;
+  }
+
+  .row-actions {
+    justify-content: flex-start;
+  }
+
+  .instance-conflict-panel {
+    margin-inline: var(--space-3);
+  }
+
+  .instance-endpoint-panel {
+    margin-inline: var(--space-3);
+  }
+
+  .instance-conflict-panel__heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .instance-endpoint-panel__heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .audit-result span,
+  .replay-action {
+    display: inline;
+    opacity: 1;
+  }
+
+  .pagination {
+    gap: var(--space-4);
+    flex-direction: column;
+  }
+
+  .terminal-page-heading,
+  .terminal-page-actions,
+  .instance-create-actions {
+    align-items: stretch;
+  }
+
+  .terminal-page-heading {
+    flex-direction: column;
+  }
+
+  .terminal-page-actions {
+    flex-wrap: wrap;
+  }
+
+  .instance-create-actions {
+    flex-direction: column;
+  }
+
+  .credential-modal-backdrop {
+    padding: var(--space-3);
+    place-items: start center;
+  }
+
+  .credential-modal {
+    max-height: none;
+  }
+
+  .credential-form-grid,
+  .auth-selector,
+  .credential-material-grid.is-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .auth-selector label + label {
+    border-top: 0;
+    border-left: var(--border-thin) solid var(--color-border);
+  }
+
+  .credential-modal__intro,
+  .credential-delivery__item,
+  .access-sheet__row {
+    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .credential-modal__intro {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .access-sheet__row {
+    align-items: stretch;
+  }
+
+  .access-secret-card__heading,
+  .access-key-section__heading,
+  .managed-private-key {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .terminal-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .session-rail {
+    display: none;
+  }
+
+  .interaction-builder__heading,
+  .interaction-step__heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .interaction-builder__heading > div:last-child {
+    justify-content: space-between;
+  }
+
+  .interaction-step__fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .interaction-step-field--wide,
+  .interaction-finish-hint {
+    grid-column: auto;
+  }
+
+  .mcp-page-heading,
+  .mcp-control-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .mcp-switch {
+    justify-content: space-between;
+  }
+
+  .mcp-boundary-flow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mcp-boundary-flow > b {
+    transform: rotate(90deg);
+  }
+
+  .mcp-safety-list,
+  .mcp-capability-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 680px) {
+  .topbar {
+    padding-inline: var(--space-4);
+  }
+
+  .topbar h1,
+  .system-status {
+    display: none;
+  }
+
+  .topbar__actions {
+    margin-left: auto;
+    gap: var(--space-2);
+  }
+
+  .page {
+    padding: var(--space-8) var(--space-4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: var(--duration-instant) !important;
+    animation-duration: var(--duration-instant) !important;
+    animation-iteration-count: 1 !important;
+  }
+}

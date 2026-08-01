@@ -1,0 +1,81 @@
+{
+  "name": "monolith-ssh",
+  "version": "0.1.0",
+  "private": true,
+  "author": "MonolithSSH Team",
+  "copyright": "Copyright © 2026 MonolithSSH Team",
+  "description": "A lightweight local SSH simulator for Linux and network-device sessions.",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
+    "start": "npm run build && electron .",
+    "build": "vite build",
+    "dist": "npm run build && electron-builder && npm run verify:installer",
+    "check": "node --check electron/main.cjs && node --check electron/preload.cjs && node --check electron/mcp-sse-gateway.cjs && node --check electron/ssh-client-manager.cjs && node --check electron/credential-utils.cjs && node --check electron/credential-vault.cjs && node --check electron/port-diagnostics.cjs && node --check simulator/service.cjs && node --check simulator/service-core.cjs && node scripts/check-installer.cjs --config && vite build && node scripts/check-dist.cjs",
+    "verify:installer": "node scripts/check-installer.cjs --artifact",
+    "smoke:ssh": "node scripts/smoke-ssh.cjs",
+    "smoke:ports": "node scripts/smoke-port-conflict.cjs",
+    "smoke:bind": "node scripts/smoke-bind-scope.cjs",
+    "smoke:mcp": "node scripts/smoke-mcp.cjs",
+    "probe:ssh": "node scripts/probe-running.cjs"
+  },
+  "build": {
+    "appId": "com.monolithssh.desktop",
+    "productName": "MonolithSSH",
+    "electronDist": "node_modules/electron/dist",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "assets/icon.png",
+      "assets/icon.ico",
+      "electron/**/*",
+      "simulator/**/*",
+      "package.json"
+    ],
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "selectPerMachineByDefault": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "menuCategory": "MonolithSSH",
+      "shortcutName": "MonolithSSH",
+      "runAfterFinish": true,
+      "installerLanguages": [
+        "zh_CN",
+        "en_US"
+      ],
+      "multiLanguageInstaller": true,
+      "displayLanguageSelector": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "uninstallDisplayName": "MonolithSSH ${version}",
+      "artifactName": "MonolithSSH-${version}-Setup.${ext}",
+      "include": "build/installer.nsh"
+    }
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.4",
+    "cross-env": "^10.1.0",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
+    "vite": "^8.2.0",
+    "wait-on": "^9.1.0"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "i18next": "^26.3.6",
+    "react-i18next": "^17.0.11",
+    "ssh2": "^1.17.0"
+  }
+}
