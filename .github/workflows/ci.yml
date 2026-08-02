@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - "agent/**"
   pull_request:
     branches:
       - main
@@ -49,3 +48,8 @@ jobs:
 
       - name: Smoke test port diagnostics
         run: npm run smoke:ports
+
+      - name: Build Windows x64 installer
+        run: npm run dist:win64
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
