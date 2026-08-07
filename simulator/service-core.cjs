@@ -94,6 +94,10 @@ function normalizeStoredInstance(input) {
   };
 }
 
+function omitUndefined(input) {
+  return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined));
+}
+
 function defaultVariables() {
   return [{
     id: 'default-su-password',
@@ -430,6 +434,56 @@ class SimulatorService extends EventEmitter {
     return this.listVariables();
   }
 
+  upsertVariable(input = {}) {
+    if (this.variables.length >= 100) throw new Error('A maximum of 100 custom variables is supported');
+    const variable = normalizeVariable(input, 0);
+    const variables = [...this.variables];
+    const byId = variables.findIndex((item) => item.id === variable.id);
+    const byName = variables.findIndex((item) => item.name === variable.name);
+    let index;
+    if (byId >= 0) {
+      variables[byId] = variable;
+      index = byId;
+    } else if (byName >= 0) {
+      variables[byName] = { ...variable, id: variables[byName].id };
+      index = byName;
+    } else {
+      variables.push(variable);
+      index = variables.length - 1;
+    }
+    fs.writeFileSync(this.variablesPath, JSON.stringify(variables, null, 2));
+    this.variables = variables;
+    this.recordAudit({
+      type: 'variables.update',
+      ok: true,
+      instanceId: 'variables',
+      instanceName: 'variables',
+      source: 'mcp',
+      credentials: 'system',
+      action: `Upserted variable: ${variable.name}`
+    });
+    return variables[index];
+  }
+
+  deleteVariable(id) {
+    const variables = [...this.variables];
+    const index = variables.findIndex((variable) => variable.id === id);
+    if (index < 0) throw new Error(`Unknown variable: ${id}`);
+    const [removed] = variables.splice(index, 1);
+    fs.writeFileSync(this.variablesPath, JSON.stringify(variables, null, 2));
+    this.variables = variables;
+    this.recordAudit({
+      type: 'variables.update',
+      ok: true,
+      instanceId: 'variables',
+      instanceName: 'variables',
+      source: 'mcp',
+      credentials: 'system',
+      action: `Deleted variable: ${removed.name}`
+    });
+    return { id };
+  }
+
   loadDisabledLinuxBuiltins() {
     if (!fs.existsSync(this.linuxBuiltinsPath)) return new Set();
     const stored = JSON.parse(fs.readFileSync(this.linuxBuiltinsPath, 'utf8'));
@@ -507,22 +561,26 @@ class SimulatorService extends EventEmitter {
     return this.commandRules.map((rule) => ({ ...rule, steps: rule.steps.map((step) => ({ ...step, choices: step.choices ? [...step.choices] : undefined })) }));
   }
 
-  replaceCommandRules(input = {}) {
-    const rules = Array.isArray(input) ? input : input.rules;
-    if (!Array.isArray(rules)) throw new Error('Command rules payload must contain a rules array');
-    if (rules.length > 100) throw new Error('A maximum of 100 custom command rules is supported');
-    const normalized = rules.map(normalizeCommandRule);
-    for (const [index, rule] of normalized.entries()) {
+  validateCommandRules(rules) {
+    for (const [index, rule] of rules.entries()) {
       if (rule.scope !== 'instance') continue;
       const instance = this.instances.find((item) => item.id === rule.instanceId);
       if (!instance) throw new Error(`Rule ${index + 1}: target instance does not exist`);
       if (instance.kind !== rule.kind) throw new Error(`Rule ${index + 1}: target instance type does not match the rule type`);
     }
     const variableNames = new Set(this.variables.map((variable) => variable.name));
-    for (const [index, rule] of normalized.entries()) {
+    for (const [index, rule] of rules.entries()) {
       const missingStep = rule.steps.find((step) => step.type === 'verify_variable' && !variableNames.has(step.variable));
       if (missingStep) throw new Error(`Rule ${index + 1}: verification variable ${missingStep.variable} does not exist`);
     }
+  }
+
+  replaceCommandRules(input = {}) {
+    const rules = Array.isArray(input) ? input : input.rules;
+    if (!Array.isArray(rules)) throw new Error('Command rules payload must contain a rules array');
+    if (rules.length > 100) throw new Error('A maximum of 100 custom command rules is supported');
+    const normalized = rules.map(normalizeCommandRule);
+    this.validateCommandRules(normalized);
     fs.writeFileSync(this.rulesPath, JSON.stringify(normalized, null, 2));
     this.commandRules = normalized;
     this.recordAudit({
@@ -535,6 +593,67 @@ class SimulatorService extends EventEmitter {
       action: `Applied ${normalized.length} custom command rules`
     });
     return this.listCommandRules();
+  }
+
+  createCommandRule(input = {}) {
+    if (this.commandRules.length >= 100) throw new Error('A maximum of 100 custom command rules is supported');
+    const rule = normalizeCommandRule(input, 0);
+    if (this.commandRules.some((item) => item.id === rule.id)) throw new Error(`Command rule id ${rule.id} already exists`);
+    const rules = [...this.commandRules, rule];
+    this.validateCommandRules(rules);
+    fs.writeFileSync(this.rulesPath, JSON.stringify(rules, null, 2));
+    this.commandRules = rules;
+    this.recordAudit({
+      type: 'rules.create',
+      ok: true,
+      instanceId: 'command-rules',
+      instanceName: 'command-rules',
+      source: 'mcp',
+      credentials: 'system',
+      action: `Created command rule: ${rule.pattern} (${rule.kind}/${rule.behavior})`
+    });
+    return rule;
+  }
+
+  updateCommandRule(id, patch = {}) {
+    const index = this.commandRules.findIndex((rule) => rule.id === id);
+    if (index < 0) throw new Error(`Unknown command rule: ${id}`);
+    const merged = { ...this.commandRules[index], ...omitUndefined(patch), id };
+    const rule = normalizeCommandRule(merged, index);
+    const rules = [...this.commandRules];
+    rules[index] = rule;
+    this.validateCommandRules(rules);
+    fs.writeFileSync(this.rulesPath, JSON.stringify(rules, null, 2));
+    this.commandRules = rules;
+    this.recordAudit({
+      type: 'rules.update',
+      ok: true,
+      instanceId: 'command-rules',
+      instanceName: 'command-rules',
+      source: 'mcp',
+      credentials: 'system',
+      action: `Updated command rule: ${rule.pattern}`
+    });
+    return rule;
+  }
+
+  deleteCommandRule(id) {
+    const index = this.commandRules.findIndex((rule) => rule.id === id);
+    if (index < 0) throw new Error(`Unknown command rule: ${id}`);
+    const rules = [...this.commandRules];
+    const [removed] = rules.splice(index, 1);
+    fs.writeFileSync(this.rulesPath, JSON.stringify(rules, null, 2));
+    this.commandRules = rules;
+    this.recordAudit({
+      type: 'rules.delete',
+      ok: true,
+      instanceId: 'command-rules',
+      instanceName: 'command-rules',
+      source: 'mcp',
+      credentials: 'system',
+      action: `Deleted command rule: ${removed.pattern}`
+    });
+    return { id };
   }
 
   recordAudit(event) {
@@ -646,10 +765,35 @@ class SimulatorService extends EventEmitter {
     return this.publicInstance(instance);
   }
 
-  executeInstanceCommand(id, command) {
+  executeInstanceCommand(id, command, input) {
     const instance = this.getInstance(id);
     const runtime = this.runtimes.get(id);
     if (!runtime) throw new Error(`${instance.name} is not running`);
+
+    if (input !== undefined) {
+      const engine = runtime.mcpEngine;
+      if (!engine || !engine.inputMode?.()) throw new Error('No interactive prompt is waiting for input on this instance');
+      const result = engine.submitInput(String(input));
+      const waiting = Boolean(engine.inputMode?.());
+      if (!waiting) runtime.mcpEngine = null;
+      this.recordAudit({
+        type: 'interaction',
+        ok: result.ok !== false,
+        instanceId: instance.id,
+        instanceName: instance.name,
+        source: 'mcp',
+        credentials: 'system',
+        action: result.auditAction ?? 'Interactive input processed'
+      });
+      return {
+        output: result.output ?? '',
+        clear: false,
+        exit: false,
+        requiresInput: waiting,
+        prompt: waiting ? result.prompt : engine.prompt()
+      };
+    }
+
     const rawCommand = String(command ?? '');
     if (!rawCommand.trim() || rawCommand.length > 10000) throw new Error('Command must contain 1-10000 characters');
     const engine = createSession(
@@ -662,6 +806,7 @@ class SimulatorService extends EventEmitter {
       () => this.variableMap()
     );
     const result = engine.execute(rawCommand);
+    runtime.mcpEngine = result.awaitInput === true ? engine : null;
     this.recordAudit({
       type: 'command',
       ok: true,

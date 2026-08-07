@@ -73,7 +73,7 @@ const state = {
     endpoint: 'http://127.0.0.1:3765/mcp',
     sseEndpoint: 'http://127.0.0.1:3765/sse',
     lastError: null,
-    toolCount: 20
+    toolCount: 25
   },
   mcpCopied: false,
   instanceCreator: null,

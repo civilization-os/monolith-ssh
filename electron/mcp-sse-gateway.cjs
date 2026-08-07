@@ -7,16 +7,64 @@ const path = require('node:path');
 const DEFAULT_SETTINGS = Object.freeze({ enabled: false, host: '127.0.0.1', port: 3765 });
 const SUPPORTED_PROTOCOLS = new Set(['2025-06-18', '2025-03-26', '2024-11-05']);
 
+const RULE_STEP_SCHEMA = Object.freeze({
+  type: 'object',
+  properties: {
+    id: { type: 'string', maxLength: 100 },
+    type: { type: 'string', enum: ['input', 'verify_variable', 'verify_choice', 'set_user', 'set_mode', 'output', 'finish'] },
+    prompt: { type: 'string', maxLength: 200 },
+    secret: { type: 'boolean' },
+    saveAs: { type: 'string', maxLength: 64 },
+    input: { type: 'string', maxLength: 64 },
+    variable: { type: 'string', maxLength: 64 },
+    failureOutput: { type: 'string', maxLength: 20000 },
+    choices: { type: 'array', maxItems: 20, items: { type: 'string', maxLength: 100 } },
+    caseSensitive: { type: 'boolean' },
+    target: { type: 'string', maxLength: 200 },
+    text: { type: 'string', maxLength: 20000 }
+  },
+  additionalProperties: false
+});
+
+const RULE_SCHEMA = Object.freeze({
+  type: 'object',
+  properties: {
+    id: { type: 'string', maxLength: 100 },
+    kind: { type: 'string', enum: ['linux', 'network'] },
+    scope: { type: 'string', enum: ['type', 'instance'] },
+    instanceId: { type: ['string', 'null'], maxLength: 100 },
+    mode: { type: 'string', maxLength: 50 },
+    matchType: { type: 'string', enum: ['exact', 'command', 'regex'] },
+    pattern: { type: 'string', minLength: 1, maxLength: 200 },
+    output: { type: 'string', maxLength: 20000 },
+    behavior: { type: 'string', enum: ['output', 'interactive'] },
+    steps: { type: 'array', maxItems: 20, items: RULE_STEP_SCHEMA },
+    requiresArgument: { type: 'boolean' },
+    enabled: { type: 'boolean' }
+  },
+  additionalProperties: false
+});
+
+const VARIABLE_SCHEMA = Object.freeze({
+  type: 'object',
+  properties: {
+    id: { type: 'string', maxLength: 100 },
+    name: { type: 'string', minLength: 1, maxLength: 64 },
+    value: { type: 'string', maxLength: 10000 },
+    secret: { type: 'boolean' },
+    description: { type: 'string', maxLength: 300 }
+  },
+  additionalProperties: false
+});
+
 const RAW_TOOLS = [
   {
     name: 'monolith_get_state',
-    description: 'Read the complete MonolithSSH application state: instances, command rules, variables, and Linux built-ins.',
+    description: 'Read the complete MonolithSSH application state: instances, command rules, variables, and Linux built-ins. Use dedicated tools (monolith_get_audit, etc.) for granular reads.',
     inputSchema: {
       type: 'object',
       properties: {
-        includeSecrets: { type: 'boolean', default: false },
-        includeAudit: { type: 'boolean', default: false },
-        auditLimit: { type: 'integer', minimum: 1, maximum: 500, default: 100 }
+        includeSecrets: { type: 'boolean', default: false }
       },
       additionalProperties: false
     }
@@ -117,8 +165,8 @@ const RAW_TOOLS = [
   },
   {
     name: 'monolith_execute_command',
-    description: 'Execute one non-interactive command against a running instance and return its output.',
-    inputSchema: { type: 'object', properties: { id: { type: 'string', minLength: 1, maxLength: 100 }, command: { type: 'string', minLength: 1, maxLength: 10000 } }, required: ['id', 'command'], additionalProperties: false }
+    description: 'Execute one non-interactive command against a running instance, or submit input to an interactive prompt. When a command returns requiresInput=true, call again with the same id and the input argument to answer the prompt.',
+    inputSchema: { type: 'object', properties: { id: { type: 'string', minLength: 1, maxLength: 100 }, command: { type: 'string', minLength: 1, maxLength: 10000 }, input: { type: 'string', maxLength: 10000, description: 'Answer to a pending interactive prompt (requiresInput=true from a previous call). Provide either command or input, not both.' } }, required: ['id'], additionalProperties: false }
   },
   {
     name: 'monolith_get_command_rules',
@@ -128,7 +176,22 @@ const RAW_TOOLS = [
   {
     name: 'monolith_replace_command_rules',
     description: 'Replace all command rules. The new rules apply to existing SSH sessions immediately.',
-    inputSchema: { type: 'object', properties: { rules: { type: 'array', maxItems: 500, items: { type: 'object' } } }, required: ['rules'], additionalProperties: false }
+    inputSchema: { type: 'object', properties: { rules: { type: 'array', maxItems: 500, items: RULE_SCHEMA } }, required: ['rules'], additionalProperties: false }
+  },
+  {
+    name: 'monolith_create_command_rule',
+    description: 'Create one command rule. Provide the full rule object; omit id to generate one.',
+    inputSchema: { type: 'object', properties: { rule: RULE_SCHEMA }, required: ['rule'], additionalProperties: false }
+  },
+  {
+    name: 'monolith_update_command_rule',
+    description: 'Update one command rule by id. Only the provided fields are merged into the existing rule.',
+    inputSchema: { type: 'object', properties: { id: { type: 'string', minLength: 1, maxLength: 100 }, patch: RULE_SCHEMA }, required: ['id', 'patch'], additionalProperties: false }
+  },
+  {
+    name: 'monolith_delete_command_rule',
+    description: 'Delete one command rule by id.',
+    inputSchema: { type: 'object', properties: { id: { type: 'string', minLength: 1, maxLength: 100 } }, required: ['id'], additionalProperties: false }
   },
   {
     name: 'monolith_get_variables',
@@ -138,7 +201,17 @@ const RAW_TOOLS = [
   {
     name: 'monolith_replace_variables',
     description: 'Replace all custom variables. New values apply to existing SSH sessions immediately.',
-    inputSchema: { type: 'object', properties: { variables: { type: 'array', maxItems: 500, items: { type: 'object' } } }, required: ['variables'], additionalProperties: false }
+    inputSchema: { type: 'object', properties: { variables: { type: 'array', maxItems: 500, items: VARIABLE_SCHEMA } }, required: ['variables'], additionalProperties: false }
+  },
+  {
+    name: 'monolith_upsert_variable',
+    description: 'Create or update one custom variable. Matches by id first, then by name; omit id to create.',
+    inputSchema: { type: 'object', properties: { variable: VARIABLE_SCHEMA }, required: ['variable'], additionalProperties: false }
+  },
+  {
+    name: 'monolith_delete_variable',
+    description: 'Delete one custom variable by id.',
+    inputSchema: { type: 'object', properties: { id: { type: 'string', minLength: 1, maxLength: 100 } }, required: ['id'], additionalProperties: false }
   },
   {
     name: 'monolith_get_linux_builtins',
@@ -181,9 +254,10 @@ const READ_ONLY_TOOL_NAMES = new Set([
 ]);
 const DESTRUCTIVE_TOOL_NAMES = new Set([
   'monolith_delete_instance', 'monolith_execute_command', 'monolith_replace_command_rules',
-  'monolith_replace_variables', 'monolith_restore_linux_builtins', 'monolith_update_instance_credentials'
+  'monolith_delete_command_rule', 'monolith_replace_variables', 'monolith_delete_variable',
+  'monolith_restore_linux_builtins', 'monolith_update_instance_credentials'
 ]);
-const NON_IDEMPOTENT_TOOL_NAMES = new Set(['monolith_create_instance', 'monolith_execute_command', 'monolith_repair_instance_port']);
+const NON_IDEMPOTENT_TOOL_NAMES = new Set(['monolith_create_instance', 'monolith_execute_command', 'monolith_repair_instance_port', 'monolith_create_command_rule']);
 const TOOLS = Object.freeze(RAW_TOOLS.map((tool) => Object.freeze({
   ...tool,
   annotations: {
@@ -227,6 +301,11 @@ function validateSchema(value, schema, path = 'arguments') {
     if (!Array.isArray(value)) throw new Error(`${path} must be an array`);
     if (Number.isInteger(schema.maxItems) && value.length > schema.maxItems) throw new Error(`${path} must contain at most ${schema.maxItems} items`);
     value.forEach((item, index) => validateSchema(item, schema.items ?? {}, `${path}[${index}]`));
+    return;
+  }
+  if (Array.isArray(schema.type)) {
+    const valid = schema.type.includes(typeof value) || (value === null && schema.type.includes('null'));
+    if (!valid) throw new Error(`${path} must be one of: ${schema.type.join(', ')}`);
     return;
   }
   if (schema.type === 'string') {
@@ -552,12 +631,11 @@ class McpSseGateway extends EventEmitter {
     if (!tool) throw new Error(`Unknown tool: ${name}`);
     validateSchema(args, tool.inputSchema);
     if (name === 'monolith_get_state') {
-      const [instances, rules, variables, builtins, audit] = await Promise.all([
+      const [instances, rules, variables, builtins] = await Promise.all([
         this.simulator.request('instances:list'),
         this.simulator.request('commands:list'),
         this.simulator.request('variables:list'),
-        this.simulator.request('builtins:list'),
-        args.includeAudit === true ? this.simulator.request('audit:list') : Promise.resolve(null)
+        this.simulator.request('builtins:list')
       ]);
       const value = { instances, rules, variables: redactVariables(variables, args.includeSecrets === true), builtins };
       value.instanceAccess = await Promise.all(instances.map(async (instance) => {
@@ -565,7 +643,6 @@ class McpSseGateway extends EventEmitter {
         const credentialStatus = await this.credentialStatusResolver(instance.id);
         return redactInstanceAccess(access, args.includeSecrets === true, credentialStatus?.privateKeyManaged === true);
       }));
-      if (audit) value.audit = audit.slice(0, Number.isInteger(args.auditLimit) ? args.auditLimit : 100);
       return toolResult(value);
     }
     if (name === 'monolith_list_instances') return toolResult(await this.simulator.request('instances:list'));
@@ -625,14 +702,19 @@ class McpSseGateway extends EventEmitter {
       await this.credentialDeleteResolver(args.id);
       return toolResult(deleted);
     }
-    if (name === 'monolith_execute_command') return toolResult(await this.simulator.request('instances:execute', { id: args.id, command: args.command }));
+    if (name === 'monolith_execute_command') return toolResult(await this.simulator.request('instances:execute', { id: args.id, command: args.command, input: args.input }));
     if (name === 'monolith_get_command_rules') return toolResult(await this.simulator.request('commands:list'));
     if (name === 'monolith_replace_command_rules') return toolResult(await this.simulator.request('commands:save', { rules: args.rules }));
+    if (name === 'monolith_create_command_rule') return toolResult(await this.simulator.request('commands:create', args.rule));
+    if (name === 'monolith_update_command_rule') return toolResult(await this.simulator.request('commands:update', { id: args.id, ...args.patch }));
+    if (name === 'monolith_delete_command_rule') return toolResult(await this.simulator.request('commands:delete', { id: args.id }));
     if (name === 'monolith_get_variables') {
       const variables = await this.simulator.request('variables:list');
       return toolResult(redactVariables(variables, args.includeSecrets === true));
     }
     if (name === 'monolith_replace_variables') return toolResult(await this.simulator.request('variables:save', { variables: args.variables }));
+    if (name === 'monolith_upsert_variable') return toolResult(await this.simulator.request('variables:upsert', args.variable));
+    if (name === 'monolith_delete_variable') return toolResult(await this.simulator.request('variables:delete', { id: args.id }));
     if (name === 'monolith_get_linux_builtins') return toolResult(await this.simulator.request('builtins:list'));
     if (name === 'monolith_set_linux_builtin') {
       const method = args.enabled ? 'builtins:enable' : 'builtins:delete';
