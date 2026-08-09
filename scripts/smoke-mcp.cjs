@@ -124,7 +124,7 @@ async function main() {
 
     const listed = await postJson(`${origin}/mcp`, rpc(2, 'tools/list'), 'application/json, text/event-stream');
     assert.equal(listed.result.tools.length, MCP_TOOL_COUNT);
-    assert.equal(MCP_TOOL_COUNT, 20);
+    assert.equal(MCP_TOOL_COUNT, 25);
     assert.equal(listed.result.tools.find((tool) => tool.name === 'monolith_get_instance_access').annotations.readOnlyHint, true);
     assert.equal(listed.result.tools.find((tool) => tool.name === 'monolith_delete_instance').annotations.destructiveHint, true);
 
@@ -168,19 +168,65 @@ async function main() {
     assert.match(invalid.result.content[0].text, /unexpected is not supported/);
 
     await postJson(`${origin}/mcp`, rpc(9, 'tools/call', {
+      name: 'monolith_create_command_rule',
+      arguments: {
+        rule: {
+          kind: 'linux', scope: 'type', instanceId: null, mode: 'all', matchType: 'exact',
+          pattern: 'hello', output: 'hello from MCP', behavior: 'output', steps: [], enabled: true
+        }
+      }
+    }));
+    assert.ok(calls.some((entry) => entry.method === 'commands:create' && entry.payload.pattern === 'hello'));
+
+    await postJson(`${origin}/mcp`, rpc(10, 'tools/call', {
+      name: 'monolith_update_command_rule',
+      arguments: { id: 'rule-1', patch: { output: 'updated from MCP' } }
+    }));
+    assert.ok(calls.some((entry) => entry.method === 'commands:update' && entry.payload.id === 'rule-1'));
+
+    await postJson(`${origin}/mcp`, rpc(11, 'tools/call', {
+      name: 'monolith_delete_command_rule',
+      arguments: { id: 'rule-1' }
+    }));
+    assert.ok(calls.some((entry) => entry.method === 'commands:delete' && entry.payload.id === 'rule-1'));
+
+    await postJson(`${origin}/mcp`, rpc(12, 'tools/call', {
+      name: 'monolith_upsert_variable',
+      arguments: { variable: { name: 'MCP_TEST', value: 'yes', secret: false, description: 'MCP smoke test' } }
+    }));
+    assert.ok(calls.some((entry) => entry.method === 'variables:upsert' && entry.payload.name === 'MCP_TEST'));
+
+    await postJson(`${origin}/mcp`, rpc(13, 'tools/call', {
+      name: 'monolith_delete_variable',
+      arguments: { id: 'variable-1' }
+    }));
+    assert.ok(calls.some((entry) => entry.method === 'variables:delete' && entry.payload.id === 'variable-1'));
+
+    await postJson(`${origin}/mcp`, rpc(14, 'tools/call', {
+      name: 'monolith_execute_command',
+      arguments: { id: 'linux-1', command: 'su operator' }
+    }));
+    await postJson(`${origin}/mcp`, rpc(15, 'tools/call', {
+      name: 'monolith_execute_command',
+      arguments: { id: 'linux-1', input: 'monolith' }
+    }));
+    assert.ok(calls.some((entry) => entry.method === 'instances:execute' && entry.payload.command === 'su operator'));
+    assert.ok(calls.some((entry) => entry.method === 'instances:execute' && entry.payload.input === 'monolith'));
+
+    await postJson(`${origin}/mcp`, rpc(16, 'tools/call', {
       name: 'monolith_update_instance_credentials',
       arguments: { id: 'linux-1', username: 'operator', authMethod: 'password', password: 'rotated-secret' }
     }));
     assert.ok(calls.some((entry) => entry.method === 'instances:update-credentials' && entry.payload.password === 'rotated-secret'));
     assert.ok(credentialEvents.includes('mutate:linux-1'));
 
-    await postJson(`${origin}/mcp`, rpc(10, 'tools/call', {
+    await postJson(`${origin}/mcp`, rpc(17, 'tools/call', {
       name: 'monolith_delete_instance',
       arguments: { id: 'linux-1' }
     }));
     assert.ok(credentialEvents.includes('delete:linux-1'));
 
-    const legacy = await legacyRoundTrip(origin, rpc(11, 'ping'));
+    const legacy = await legacyRoundTrip(origin, rpc(18, 'ping'));
     assert.deepEqual(legacy.result, {});
 
     await gateway.updateSettings({ enabled: false });

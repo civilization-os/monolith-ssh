@@ -276,7 +276,7 @@
       "sseCompatibility": "Compatible SSE",
       "modernEndpoint": "Modern stateless endpoint",
       "capabilitiesTitle": "Application capabilities",
-      "capabilitiesHint": "20 tools validate inputs before calling the app service. The gateway adds no database and caches no business results.",
+      "capabilitiesHint": "25 tools validate inputs before calling the app service. The gateway adds no database and caches no business results.",
       "toolCount": "{{count}} tools",
       "fullControlTitle": "This is a full-control interface",
       "fullControlHint": "While enabled, trusted MCP clients can manage instances, listen endpoints, authentication, rules, variables, built-ins, and audit data. Secrets are redacted unless includeSecrets is explicit, and managed private keys are never returned through MCP.",

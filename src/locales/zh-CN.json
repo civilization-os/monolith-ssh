@@ -276,7 +276,7 @@
       "sseCompatibility": "兼容 SSE",
       "modernEndpoint": "现代无状态端点",
       "capabilitiesTitle": "应用操作能力",
-      "capabilitiesHint": "20 个工具直接进入应用服务，并在调用前校验参数；网关不另建数据库，也不缓存业务结果。",
+      "capabilitiesHint": "25 个工具直接进入应用服务，并在调用前校验参数；网关不另建数据库，也不缓存业务结果。",
       "toolCount": "{{count}} 个工具",
       "fullControlTitle": "这是一个完整控制接口",
       "fullControlHint": "开启后，可信 MCP 客户端可以管理实例、监听端点、认证凭据、规则、变量与内置命令，并读取审计记录。敏感值默认脱敏，只有显式 includeSecrets 才会返回；托管私钥永不通过 MCP 返回。",
