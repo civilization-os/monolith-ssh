@@ -26,7 +26,7 @@ export function renderShell() {
       <aside class="sidebar">
         <div class="sidebar__brand">
           <div class="brand-title">${icon('logo')}<span>Monolith SSH</span></div>
-          <span class="brand-version" data-app-version>v0.1.0-desktop</span>
+          <span class="brand-version" data-app-version>v0.2.1-desktop</span>
         </div>
 
         <nav class="primary-nav" aria-label="${i18next.t('shell.primaryNavigation')}">

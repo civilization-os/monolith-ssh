@@ -3,6 +3,7 @@ const { randomUUID } = require('node:crypto');
 const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
+const { version: APP_VERSION } = require('../package.json');
 
 const DEFAULT_SETTINGS = Object.freeze({ enabled: false, host: '127.0.0.1', port: 3765 });
 const SUPPORTED_PROTOCOLS = new Set(['2025-06-18', '2025-03-26', '2024-11-05']);
@@ -622,7 +623,7 @@ class McpSseGateway extends EventEmitter {
         result = {
           protocolVersion: SUPPORTED_PROTOCOLS.has(requested) ? requested : '2025-06-18',
           capabilities: { tools: { listChanged: false } },
-          serverInfo: { name: 'monolithssh', version: '0.1.0' },
+          serverInfo: { name: 'monolithssh', version: APP_VERSION },
           instructions: 'Stateless local control surface for MonolithSSH. Mutations are handled by the application service; the MCP gateway stores no business state. Secret values are redacted unless a tool call explicitly sets includeSecrets to true. Managed private keys are never returned.'
         };
       } else if (message.method === 'ping') {
