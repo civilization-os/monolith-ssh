@@ -258,6 +258,24 @@ const DESTRUCTIVE_TOOL_NAMES = new Set([
   'monolith_restore_linux_builtins', 'monolith_update_instance_credentials'
 ]);
 const NON_IDEMPOTENT_TOOL_NAMES = new Set(['monolith_create_instance', 'monolith_execute_command', 'monolith_repair_instance_port', 'monolith_create_command_rule']);
+const MCP_MUTATION_RESOURCES = Object.freeze({
+  monolith_create_instance: ['instances', 'audit'],
+  monolith_set_instance_running: ['instances', 'audit'],
+  monolith_update_instance_endpoint: ['instances', 'audit'],
+  monolith_update_instance_credentials: ['instances', 'audit'],
+  monolith_repair_instance_port: ['instances', 'audit'],
+  monolith_delete_instance: ['instances', 'commandRules', 'audit'],
+  monolith_execute_command: ['instances', 'audit'],
+  monolith_replace_command_rules: ['commandRules', 'audit'],
+  monolith_create_command_rule: ['commandRules', 'audit'],
+  monolith_update_command_rule: ['commandRules', 'audit'],
+  monolith_delete_command_rule: ['commandRules', 'audit'],
+  monolith_replace_variables: ['variables', 'audit'],
+  monolith_upsert_variable: ['variables', 'audit'],
+  monolith_delete_variable: ['variables', 'audit'],
+  monolith_set_linux_builtin: ['linuxBuiltins', 'audit'],
+  monolith_restore_linux_builtins: ['linuxBuiltins', 'audit']
+});
 const TOOLS = Object.freeze(RAW_TOOLS.map((tool) => Object.freeze({
   ...tool,
   annotations: {
@@ -267,6 +285,12 @@ const TOOLS = Object.freeze(RAW_TOOLS.map((tool) => Object.freeze({
     openWorldHint: false
   }
 })));
+const UNMAPPED_MUTATION_TOOLS = TOOLS
+  .filter((tool) => !tool.annotations.readOnlyHint && !Object.hasOwn(MCP_MUTATION_RESOURCES, tool.name))
+  .map((tool) => tool.name);
+if (UNMAPPED_MUTATION_TOOLS.length) {
+  throw new Error(`MCP mutation tools require UI refresh resources: ${UNMAPPED_MUTATION_TOOLS.join(', ')}`);
+}
 
 function redactVariables(variables, includeSecrets) {
   return variables.map((variable) => ({
@@ -630,6 +654,7 @@ class McpSseGateway extends EventEmitter {
     const tool = TOOLS.find((item) => item.name === name);
     if (!tool) throw new Error(`Unknown tool: ${name}`);
     validateSchema(args, tool.inputSchema);
+    const complete = (value) => this.completeToolCall(name, args, value);
     if (name === 'monolith_get_state') {
       const [instances, rules, variables, builtins] = await Promise.all([
         this.simulator.request('instances:list'),
@@ -643,19 +668,19 @@ class McpSseGateway extends EventEmitter {
         const credentialStatus = await this.credentialStatusResolver(instance.id);
         return redactInstanceAccess(access, args.includeSecrets === true, credentialStatus?.privateKeyManaged === true);
       }));
-      return toolResult(value);
+      return complete(value);
     }
-    if (name === 'monolith_list_instances') return toolResult(await this.simulator.request('instances:list'));
+    if (name === 'monolith_list_instances') return complete(await this.simulator.request('instances:list'));
     if (name === 'monolith_get_instance') {
       const instances = await this.simulator.request('instances:list');
       const instance = instances.find((item) => item.id === args.id);
       if (!instance) throw new Error(`Unknown instance: ${args.id}`);
-      return toolResult(instance);
+      return complete(instance);
     }
     if (name === 'monolith_get_instance_access') {
       const access = await this.simulator.request('instances:access', { id: args.id });
       const credentialStatus = await this.credentialStatusResolver(args.id);
-      return toolResult(redactInstanceAccess(access, args.includeSecrets === true, credentialStatus?.privateKeyManaged === true));
+      return complete(redactInstanceAccess(access, args.includeSecrets === true, credentialStatus?.privateKeyManaged === true));
     }
     if (name === 'monolith_create_instance') {
       const instance = await this.simulator.request('instances:create', {
@@ -668,17 +693,17 @@ class McpSseGateway extends EventEmitter {
         host: args.host,
         port: args.port
       });
-      if (args.start === true) return toolResult(await this.simulator.request('instances:start', { id: instance.id }));
-      return toolResult(instance);
+      if (args.start === true) return complete(await this.simulator.request('instances:start', { id: instance.id }));
+      return complete(instance);
     }
     if (name === 'monolith_set_instance_running') {
       const method = args.running ? 'instances:start' : 'instances:stop';
-      return toolResult(await this.simulator.request(method, { id: args.id }));
+      return complete(await this.simulator.request(method, { id: args.id }));
     }
     if (name === 'monolith_update_instance_endpoint') {
       const instance = await this.simulator.request('instances:update-endpoint', { id: args.id, host: args.host, port: args.port });
-      if (args.start === true) return toolResult(await this.simulator.request('instances:start', { id: instance.id }));
-      return toolResult(instance);
+      if (args.start === true) return complete(await this.simulator.request('instances:start', { id: instance.id }));
+      return complete(instance);
     }
     if (name === 'monolith_update_instance_credentials') {
       const updated = await this.simulator.request('instances:update-credentials', {
@@ -689,38 +714,38 @@ class McpSseGateway extends EventEmitter {
         authorizedKeys: args.authorizedKeys
       });
       await this.credentialMutationResolver(args.id, args);
-      return toolResult(updated);
+      return complete(updated);
     }
     if (name === 'monolith_get_instance_port_status') {
       const status = await this.simulator.request('instances:port-status', { id: args.id });
       const owner = status.available || status.occupiedBySelf ? null : await this.portOwnerResolver(status.port);
-      return toolResult({ ...status, owner });
+      return complete({ ...status, owner });
     }
-    if (name === 'monolith_repair_instance_port') return toolResult(await this.simulator.request('instances:repair-port', { id: args.id }));
+    if (name === 'monolith_repair_instance_port') return complete(await this.simulator.request('instances:repair-port', { id: args.id }));
     if (name === 'monolith_delete_instance') {
       const deleted = await this.simulator.request('instances:delete', { id: args.id });
       await this.credentialDeleteResolver(args.id);
-      return toolResult(deleted);
+      return complete(deleted);
     }
-    if (name === 'monolith_execute_command') return toolResult(await this.simulator.request('instances:execute', { id: args.id, command: args.command, input: args.input }));
-    if (name === 'monolith_get_command_rules') return toolResult(await this.simulator.request('commands:list'));
-    if (name === 'monolith_replace_command_rules') return toolResult(await this.simulator.request('commands:save', { rules: args.rules }));
-    if (name === 'monolith_create_command_rule') return toolResult(await this.simulator.request('commands:create', args.rule));
-    if (name === 'monolith_update_command_rule') return toolResult(await this.simulator.request('commands:update', { id: args.id, ...args.patch }));
-    if (name === 'monolith_delete_command_rule') return toolResult(await this.simulator.request('commands:delete', { id: args.id }));
+    if (name === 'monolith_execute_command') return complete(await this.simulator.request('instances:execute', { id: args.id, command: args.command, input: args.input }));
+    if (name === 'monolith_get_command_rules') return complete(await this.simulator.request('commands:list'));
+    if (name === 'monolith_replace_command_rules') return complete(await this.simulator.request('commands:save', { rules: args.rules }));
+    if (name === 'monolith_create_command_rule') return complete(await this.simulator.request('commands:create', args.rule));
+    if (name === 'monolith_update_command_rule') return complete(await this.simulator.request('commands:update', { id: args.id, ...args.patch }));
+    if (name === 'monolith_delete_command_rule') return complete(await this.simulator.request('commands:delete', { id: args.id }));
     if (name === 'monolith_get_variables') {
       const variables = await this.simulator.request('variables:list');
-      return toolResult(redactVariables(variables, args.includeSecrets === true));
+      return complete(redactVariables(variables, args.includeSecrets === true));
     }
-    if (name === 'monolith_replace_variables') return toolResult(await this.simulator.request('variables:save', { variables: args.variables }));
-    if (name === 'monolith_upsert_variable') return toolResult(await this.simulator.request('variables:upsert', args.variable));
-    if (name === 'monolith_delete_variable') return toolResult(await this.simulator.request('variables:delete', { id: args.id }));
-    if (name === 'monolith_get_linux_builtins') return toolResult(await this.simulator.request('builtins:list'));
+    if (name === 'monolith_replace_variables') return complete(await this.simulator.request('variables:save', { variables: args.variables }));
+    if (name === 'monolith_upsert_variable') return complete(await this.simulator.request('variables:upsert', args.variable));
+    if (name === 'monolith_delete_variable') return complete(await this.simulator.request('variables:delete', { id: args.id }));
+    if (name === 'monolith_get_linux_builtins') return complete(await this.simulator.request('builtins:list'));
     if (name === 'monolith_set_linux_builtin') {
       const method = args.enabled ? 'builtins:enable' : 'builtins:delete';
-      return toolResult(await this.simulator.request(method, { id: args.id }));
+      return complete(await this.simulator.request(method, { id: args.id }));
     }
-    if (name === 'monolith_restore_linux_builtins') return toolResult(await this.simulator.request('builtins:restore'));
+    if (name === 'monolith_restore_linux_builtins') return complete(await this.simulator.request('builtins:restore'));
     if (name === 'monolith_get_audit') {
       const events = await this.simulator.request('audit:list');
       const limit = Number.isInteger(args.limit) ? Math.min(500, Math.max(1, args.limit)) : 100;
@@ -736,9 +761,27 @@ class McpSseGateway extends EventEmitter {
         if (query && !Object.values(event).join(' ').toLowerCase().includes(query)) return false;
         return true;
       });
-      return toolResult(filtered.slice(0, limit));
+      return complete(filtered.slice(0, limit));
     }
     throw new Error(`Tool is registered but not implemented: ${name}`);
+  }
+
+  completeToolCall(toolName, args, value) {
+    const resources = MCP_MUTATION_RESOURCES[toolName];
+    if (resources) {
+      const change = Object.freeze({
+        toolName,
+        resources: Object.freeze([...resources]),
+        instanceId: typeof args.id === 'string' ? args.id : null,
+        timestamp: new Date().toISOString()
+      });
+      try {
+        this.emit('mutation', change);
+      } catch (error) {
+        console.error(`[mcp] Mutation notification failed: ${error.message}`);
+      }
+    }
+    return toolResult(value);
   }
 }
 

@@ -57,6 +57,11 @@ contextBridge.exposeInMainWorld('monolith', {
       const listener = (_event, payload) => callback(payload);
       ipcRenderer.on('mcp:status', listener);
       return () => ipcRenderer.removeListener('mcp:status', listener);
+    },
+    onDataChanged: (callback) => {
+      const listener = (_event, payload) => callback(payload);
+      ipcRenderer.on('mcp:data-changed', listener);
+      return () => ipcRenderer.removeListener('mcp:data-changed', listener);
     }
   },
   terminal: {

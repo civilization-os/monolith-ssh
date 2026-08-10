@@ -77,6 +77,7 @@ async function main() {
   const settingsPath = path.join(tempDirectory, 'mcp-settings.json');
   const calls = [];
   const credentialEvents = [];
+  const mutationEvents = [];
   const simulator = {
     async request(method, payload) {
       calls.push({ method, payload });
@@ -107,6 +108,7 @@ async function main() {
     credentialMutationResolver: (id) => credentialEvents.push(`mutate:${id}`),
     credentialDeleteResolver: (id) => credentialEvents.push(`delete:${id}`)
   });
+  gateway.on('mutation', (change) => mutationEvents.push(change));
 
   try {
     await gateway.init();
@@ -166,6 +168,7 @@ async function main() {
     }));
     assert.equal(invalid.result.isError, true);
     assert.match(invalid.result.content[0].text, /unexpected is not supported/);
+    assert.equal(mutationEvents.length, 0, 'read-only and rejected tool calls must not emit mutation events');
 
     await postJson(`${origin}/mcp`, rpc(9, 'tools/call', {
       name: 'monolith_create_command_rule',
@@ -225,6 +228,12 @@ async function main() {
       arguments: { id: 'linux-1' }
     }));
     assert.ok(credentialEvents.includes('delete:linux-1'));
+    assert.equal(mutationEvents.length, 9);
+    assert.deepEqual(mutationEvents[0].resources, ['commandRules', 'audit']);
+    assert.equal(mutationEvents[0].toolName, 'monolith_create_command_rule');
+    assert.ok(mutationEvents.every((change) => typeof change.timestamp === 'string'));
+    assert.ok(mutationEvents.some((change) => change.toolName === 'monolith_upsert_variable' && change.resources.includes('variables')));
+    assert.ok(mutationEvents.some((change) => change.toolName === 'monolith_update_instance_credentials' && change.instanceId === 'linux-1'));
 
     const legacy = await legacyRoundTrip(origin, rpc(18, 'ping'));
     assert.deepEqual(legacy.result, {});

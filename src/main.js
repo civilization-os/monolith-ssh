@@ -91,6 +91,17 @@ let pageTitle = null;
 let activeViewCleanup = null;
 let removeAuditListener = null;
 let removeMcpListener = null;
+let removeMcpDataChangedListener = null;
+let mcpRefreshTimer = null;
+let mcpRefreshChain = Promise.resolve();
+const pendingMcpResources = new Set();
+
+const routeRefreshResources = Object.freeze({
+  dashboard: new Set(['instances', 'audit']),
+  instances: new Set(['instances']),
+  profiles: new Set(['instances', 'commandRules', 'variables', 'linuxBuiltins']),
+  audit: new Set(['audit'])
+});
 
 function mountShell() {
   activeViewCleanup?.();
@@ -190,6 +201,41 @@ async function refreshVariables() {
 async function refreshMcpStatus() {
   if (!window.monolith) return;
   state.mcpStatus = await window.monolith.mcp.getStatus();
+}
+
+function shouldRenderAfterMcpRefresh(resources) {
+  const visibleResources = routeRefreshResources[state.route];
+  return Boolean(visibleResources && resources.some((resource) => visibleResources.has(resource)));
+}
+
+async function refreshMcpResources(resources) {
+  const resourceSet = new Set(resources);
+  const refreshes = [];
+  if (resourceSet.has('instances')) refreshes.push(refreshInstances());
+  if (resourceSet.has('commandRules')) refreshes.push(refreshCommandRules());
+  if (resourceSet.has('variables')) refreshes.push(refreshVariables());
+  if (resourceSet.has('linuxBuiltins')) refreshes.push(refreshLinuxBuiltins());
+  if (resourceSet.has('audit')) refreshes.push(refreshAudit());
+  await Promise.all(refreshes);
+  if (shouldRenderAfterMcpRefresh(resources)) render();
+}
+
+function scheduleMcpDataRefresh(change = {}) {
+  for (const resource of change.resources ?? []) pendingMcpResources.add(resource);
+  if (!pendingMcpResources.size) return;
+  if (mcpRefreshTimer) clearTimeout(mcpRefreshTimer);
+  mcpRefreshTimer = setTimeout(() => {
+    mcpRefreshTimer = null;
+    const resources = [...pendingMcpResources];
+    pendingMcpResources.clear();
+    mcpRefreshChain = mcpRefreshChain
+      .catch(() => {})
+      .then(() => refreshMcpResources(resources))
+      .catch((error) => {
+        state.error = error.message;
+        render();
+      });
+  }, 80);
 }
 
 function updateProfileDirtyIndicator() {
@@ -1083,6 +1129,7 @@ async function hydrate() {
       state.mcpStatus = status;
       if (state.route === 'settings') render();
     });
+    removeMcpDataChangedListener = window.monolith.mcp.onDataChanged(scheduleMcpDataRefresh);
   } catch (error) {
     state.error = error.message;
   } finally {
@@ -1095,6 +1142,8 @@ window.addEventListener('beforeunload', () => {
   activeViewCleanup?.();
   removeAuditListener?.();
   removeMcpListener?.();
+  removeMcpDataChangedListener?.();
+  if (mcpRefreshTimer) clearTimeout(mcpRefreshTimer);
 });
 
 mountShell();

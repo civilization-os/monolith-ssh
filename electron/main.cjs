@@ -226,6 +226,7 @@ if (hasSingleInstanceLock) app.whenReady().then(async () => {
     credentialDeleteResolver: (id) => credentialVault.delete(id)
   });
   mcpGateway.on('status', (status) => broadcast('mcp:status', status));
+  mcpGateway.on('mutation', (change) => broadcast('mcp:data-changed', change));
   await mcpGateway.init();
 
   registerIpcHandlers();
