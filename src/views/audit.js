@@ -71,7 +71,11 @@ export function renderAudit(state) {
   });
 
   return `
-    <div class="page">
+    <div class="page page--audit">
+      <div class="page-heading audit-page-heading">
+        <div><span class="page-kicker">LOCAL / EVENT JOURNAL</span><h2>${t('nav.audit')}</h2><p>${t('audit.localStore')}</p></div>
+        <span class="audit-count"><strong>${filtered.length}</strong> / ${state.auditEvents.length}</span>
+      </div>
       <div class="audit-toolbar">
         <label class="search-field">${icon('search')}<input data-audit-search value="${escapeHtml(state.auditQuery)}" placeholder="${t('audit.searchPlaceholder')}" /></label>
         <select data-audit-filter aria-label="${t('audit.filterLabel')}">

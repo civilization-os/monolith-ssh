@@ -12,7 +12,7 @@ function buildBars(events) {
     const ageHours = Math.floor((now - new Date(event.timestamp).getTime()) / 3600000);
     if (ageHours >= 0 && ageHours < 12) buckets[11 - ageHours] += 1;
   }
-  const maximum = Math.max(...buckets, 1);
+  const maximum = Math.max(...buckets, 4);
   return buckets.map((count) => ({ count, height: count ? Math.max(12, Math.round((count / maximum) * 94)) : 4 }));
 }
 
@@ -20,25 +20,31 @@ export function renderDashboard(state) {
   const t = i18next.t.bind(i18next);
   const activeCount = state.instances.filter((instance) => instance.running).length;
   const metrics = [
-    { label: t('dashboard.activeInstances'), value: String(activeCount), note: t('dashboard.configured', { total: state.instances.length }), icon: 'server' },
-    { label: t('dashboard.networkDevices'), value: String(state.instances.filter((instance) => instance.kind === 'network').length), note: t('dashboard.virtualCli'), icon: 'cable' },
-    { label: t('dashboard.auditEvents'), value: String(state.auditEvents.length), note: t('dashboard.localEventStore'), icon: 'shield' }
+    { index: '01', tone: 'live', label: t('dashboard.activeInstances'), value: String(activeCount), note: t('dashboard.configured', { total: state.instances.length }), icon: 'server' },
+    { index: '02', tone: 'network', label: t('dashboard.networkDevices'), value: String(state.instances.filter((instance) => instance.kind === 'network').length), note: t('dashboard.virtualCli'), icon: 'cable' },
+    { index: '03', tone: 'audit', label: t('dashboard.auditEvents'), value: String(state.auditEvents.length), note: t('dashboard.localEventStore'), icon: 'shield' }
   ];
   const bars = buildBars(state.auditEvents);
-  const maximum = Math.max(...bars.map((bar) => bar.count), 1);
+  const maximum = Math.max(...bars.map((bar) => bar.count), 4);
   const logRows = state.auditEvents.slice(0, 5);
 
   return `
     <div class="page page--dashboard">
-      <div class="page-heading page-heading--compact">
-        <h2>${t('dashboard.overview')}</h2>
+      <div class="page-heading page-heading--compact dashboard-heading">
+        <div><span class="page-kicker">MONOLITH / CONTROL DECK</span><h2>${t('dashboard.overview')}</h2></div>
         <span class="meta-text">${t('dashboard.lastUpdated')}</span>
       </div>
 
+      <section class="dashboard-commandbar" aria-label="${t('dashboard.systemMetrics')}">
+        <div class="dashboard-commandbar__signal"><i></i><span><strong>${t('shell.systemOnline')}</strong><small>CORE-LOCAL / SSH-SIM</small></span></div>
+        <div class="dashboard-commandbar__facts"><span><b>${activeCount}</b> / ${state.instances.length}</span><small>${t('dashboard.activeInstances')}</small></div>
+        <button class="primary-button" type="button" data-route="instances">${icon('plus')}${t('instances.newInstance')}</button>
+      </section>
+
       <section class="metric-grid" aria-label="${t('dashboard.systemMetrics')}">
         ${metrics.map((metric) => `
-          <article class="metric-card">
-            <div class="metric-card__label"><span>${metric.label}</span>${icon(metric.icon)}</div>
+          <article class="metric-card metric-card--${metric.tone}">
+            <div class="metric-card__label"><span><b>${metric.index}</b>${metric.label}</span><i>${icon(metric.icon)}</i></div>
             <div class="metric-card__value"><strong>${metric.value}</strong><span>${metric.note}</span></div>
           </article>
         `).join('')}

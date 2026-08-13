@@ -12,9 +12,9 @@
   padding: 0 calc(var(--window-controls-width) + var(--space-3)) 0 var(--space-3);
   align-items: center;
   justify-content: space-between;
-  color: var(--color-terminal-foreground);
-  border-bottom: var(--border-thin) solid var(--color-terminal-surface-hover);
-  background: var(--color-terminal-surface);
+  color: var(--color-shell-text);
+  border-bottom: var(--border-thin) solid var(--color-shell-border);
+  background: var(--color-shell);
   font-family: var(--font-mono);
   -webkit-app-region: drag;
   user-select: none;
@@ -43,17 +43,21 @@
   letter-spacing: var(--letter-spacing-tight);
 }
 
+.window-titlebar__identity strong span {
+  color: var(--color-accent);
+}
+
 .window-titlebar__identity > i {
   width: var(--border-thin);
   height: var(--space-3);
   margin-inline: var(--space-1);
-  background: var(--color-terminal-muted);
+  background: var(--color-shell-muted);
   opacity: var(--opacity-disabled);
 }
 
 .window-titlebar__identity span,
 .window-titlebar__mode {
-  color: var(--color-terminal-muted);
+  color: var(--color-shell-muted);
   font-size: var(--font-size-2xs);
   letter-spacing: var(--letter-spacing-label);
   text-transform: uppercase;
@@ -69,6 +73,7 @@
   height: var(--status-dot-size);
   border-radius: var(--radius-round);
   background: var(--color-terminal-green);
+  box-shadow: 0 0 var(--space-2) var(--color-success-glow);
 }
 
 .sidebar {
@@ -77,10 +82,11 @@
   z-index: var(--layer-sidebar);
   display: flex;
   width: var(--sidebar-width);
-  padding: var(--space-8) var(--space-6) var(--space-6);
+  padding: var(--space-8) var(--space-4) var(--space-5);
   flex-direction: column;
-  border-right: var(--border-thin) solid var(--color-border);
-  background: var(--color-surface);
+  border-right: var(--border-thin) solid var(--color-shell-border);
+  color: var(--color-shell-text);
+  background: linear-gradient(180deg, var(--color-shell-sheen), transparent 30%), var(--color-shell);
 }
 
 .app-main {
@@ -99,7 +105,8 @@
   align-items: center;
   justify-content: space-between;
   border-bottom: var(--border-thin) solid var(--color-border);
-  background: var(--color-canvas);
+  background: var(--color-surface-glass);
+  backdrop-filter: blur(var(--space-3));
   -webkit-app-region: drag;
 }
 
@@ -113,7 +120,7 @@
   width: 100%;
   max-width: var(--content-max-width);
   margin: 0 auto;
-  padding: var(--space-12) var(--space-8) var(--space-16);
+  padding: var(--space-10) var(--space-8) var(--space-16);
 }
 
 .dashboard-grid {

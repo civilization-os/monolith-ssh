@@ -239,14 +239,23 @@ function renderEndpointEditor(instance, state, t) {
 
 export function renderInstances(state) {
   const t = i18next.t.bind(i18next);
+  const activeCount = state.instances.filter((instance) => instance.running).length;
+  const lanCount = state.instances.filter((instance) => instance.host === '0.0.0.0').length;
   return `
-    <div class="page">
+    <div class="page page--instances">
       <div class="page-heading">
-        <div><h2>${t('instances.title')}</h2><p>${t('instances.subtitle')}</p></div>
+        <div><span class="page-kicker">SSH / INSTANCE REGISTRY</span><h2>${t('instances.title')}</h2><p>${t('instances.subtitle')}</p></div>
         <div class="instance-create-actions">
           <select data-instance-kind aria-label="${t('instances.newType')}"><option value="linux">${t('instances.virtualLinux')}</option><option value="network">${t('instances.networkDevice')}</option></select>
-          <button class="link-button" type="button" data-new-instance>${icon('plus')}${t('instances.newInstance')}</button>
+          <button class="primary-button" type="button" data-new-instance>${icon('plus')}${t('instances.newInstance')}</button>
         </div>
+      </div>
+
+      <div class="instance-summary" aria-label="${t('instances.tableLabel')}">
+        <span><small>${t('common.running')}</small><strong>${activeCount}</strong></span>
+        <span><small>${t('common.stopped')}</small><strong>${Math.max(0, state.instances.length - activeCount)}</strong></span>
+        <span><small>LAN</small><strong>${lanCount}</strong></span>
+        <code>${state.instances.length.toString().padStart(2, '0')} / NODE REGISTRY</code>
       </div>
 
       ${state.error ? `<p class="inline-error" role="alert">${escapeHtml(state.error)}</p>` : ''}

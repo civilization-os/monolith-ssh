@@ -7,7 +7,11 @@
 html {
   min-width: 100%;
   min-height: 100%;
-  background: var(--color-canvas);
+  background-color: var(--color-canvas);
+  background-image:
+    linear-gradient(var(--color-canvas-grid) var(--border-thin), transparent var(--border-thin)),
+    linear-gradient(90deg, var(--color-canvas-grid) var(--border-thin), transparent var(--border-thin));
+  background-size: var(--space-8) var(--space-8);
 }
 
 body {
@@ -15,7 +19,11 @@ body {
   min-width: 100%;
   min-height: 100vh;
   color: var(--color-text);
-  background: var(--color-canvas);
+  background-color: var(--color-canvas);
+  background-image:
+    linear-gradient(var(--color-canvas-grid) var(--border-thin), transparent var(--border-thin)),
+    linear-gradient(90deg, var(--color-canvas-grid) var(--border-thin), transparent var(--border-thin));
+  background-size: var(--space-8) var(--space-8);
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-regular);
@@ -47,14 +55,20 @@ textarea {
   border: var(--border-thin) solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+button:focus-visible {
+  outline: var(--border-strong) solid var(--color-accent);
+  outline-offset: var(--space-1);
 }
 
 input:focus-visible,
 select:focus-visible,
-textarea:focus-visible,
-button:focus-visible {
-  outline: var(--border-strong) solid var(--color-ink);
-  outline-offset: var(--space-1);
+textarea:focus-visible {
+  border-color: var(--color-accent);
+  outline: 0;
+  box-shadow: 0 0 0 var(--space-1) var(--color-focus);
 }
 
 h1,
@@ -70,6 +84,14 @@ h3 {
   color: var(--color-ink);
   line-height: var(--line-height-tight);
   letter-spacing: var(--letter-spacing-tight);
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+  opacity: var(--opacity-disabled);
 }
 
 code,

@@ -21,7 +21,7 @@ export function renderTerminal(state) {
   return `
     <div class="page page--terminal">
       <div class="page-heading terminal-page-heading">
-        <div><h2>${t('terminal.title')}</h2><p>${t('terminal.subtitle')}</p></div>
+        <div><span class="page-kicker">SSH / LIVE CONSOLE</span><h2>${t('terminal.title')}</h2><p>${t('terminal.subtitle')}</p></div>
         ${selected ? `
           <div class="terminal-page-actions">
             <label><span>${t('terminal.target')}</span><select aria-label="${t('terminal.targetLabel')}" data-terminal-target>${running.map((instance) => `<option value="${instance.id}" ${instance.id === selected.id ? 'selected' : ''}>${escapeHtml(instance.name)} · ${escapeHtml(instance.address)}</option>`).join('')}</select></label>
