@@ -1,5 +1,6 @@
 const path = require('node:path');
 const { timingSafeEqual } = require('node:crypto');
+const { executeLuaScript } = require('./lua-runtime.cjs');
 
 const LINUX_BUILTIN_COMMANDS = Object.freeze([
   { id: 'clear', command: 'clear', aliases: ['clear'], usage: 'clear' },
@@ -70,7 +71,7 @@ function renderRuleOutput(output, context) {
   return String(output ?? '').replace(/\{\{([A-Za-z_][A-Za-z0-9_.-]*)\}\}/g, (_match, key) => values[key] ?? '');
 }
 
-function executeCustomRule(rules, context) {
+function executeCustomRule(rules, context, executeLua) {
   const matchingScope = (rule, scope) => rule.scope === scope
     && (scope !== 'instance' || rule.instanceId === context.instanceId);
 
@@ -88,6 +89,7 @@ function executeCustomRule(rules, context) {
 
       if (!matches) continue;
       const ruleContext = { ...context, args: args.slice(1) };
+      if (rule.behavior === 'lua') return executeLua(rule, ruleContext);
       if (rule.behavior !== 'interactive') {
         return { output: renderRuleOutput(rule.output, ruleContext) };
       }
@@ -109,6 +111,7 @@ function executeCustomRule(rules, context) {
 class InteractiveSession {
   constructor() {
     this.pendingInteraction = null;
+    this.luaSessionState = {};
   }
 
   inputMode() {
@@ -165,6 +168,57 @@ class InteractiveSession {
 
   applyInteractionAction(step, runtime) {
     return { ok: false, output: `Unsupported interaction action: ${step.type}` };
+  }
+
+  applyLuaActions(result) {
+    if (result.setUser !== null) return { ok: false, output: 'Lua set_user is not supported by this simulator type' };
+    if (result.setMode !== null) return { ok: false, output: 'Lua set_mode is not supported by this simulator type' };
+    return { ok: true, changed: false };
+  }
+
+  executeLuaRule(rule, context) {
+    try {
+      const ruleId = rule.id;
+      const result = executeLuaScript({
+        script: rule.luaScript,
+        context: {
+          command: context.command,
+          args: context.args,
+          user: context.user,
+          hostname: context.hostname,
+          instance: context.instance,
+          instance_id: context.instanceId,
+          rule_id: ruleId,
+          kind: context.kind,
+          mode: context.mode,
+          variables: context.variables ?? {}
+        },
+        sessionState: this.luaSessionState[ruleId],
+        instanceState: this.state.lua?.[ruleId]
+      });
+      const action = this.applyLuaActions(result);
+      if (action.ok === false) return { ok: false, output: action.output, auditAction: 'Lua action rejected' };
+
+      this.luaSessionState[ruleId] = result.sessionState;
+      if (result.instanceChanged) {
+        this.state.lua ??= {};
+        this.state.lua[ruleId] = result.instanceState;
+      }
+      if (result.instanceChanged || action.changed) this.persist();
+      return {
+        ok: result.ok,
+        output: result.output,
+        clear: result.clear,
+        exit: result.exit,
+        auditAction: action.auditAction ?? `Lua rule executed: ${rule.pattern}`
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        output: `Lua rule error: ${error.message}`,
+        auditAction: `Lua rule failed: ${rule.pattern}`
+      };
+    }
   }
 
   advanceInteraction() {
@@ -252,6 +306,21 @@ class NetworkSession extends InteractiveSession {
     return { ok: true, auditAction: `Session mode changed to ${target}` };
   }
 
+  applyLuaActions(result) {
+    if (result.setUser !== null) return { ok: false, output: '% Lua set_user is only available to Linux simulators' };
+    if (result.setMode === null) return { ok: true, changed: false };
+    if (!['user_exec', 'privileged_exec', 'global_config', 'interface_config'].includes(result.setMode)) {
+      return { ok: false, output: `% Invalid Lua target mode: ${result.setMode}` };
+    }
+    if (result.setMode === 'interface_config' && !this.interfaceName) {
+      return { ok: false, output: '% Lua cannot enter interface_config without a selected interface' };
+    }
+    const changed = this.mode !== result.setMode;
+    this.mode = result.setMode;
+    if (result.setMode !== 'interface_config') this.interfaceName = null;
+    return { ok: true, changed, auditAction: `Lua changed session mode to ${result.setMode}` };
+  }
+
   banner() {
     return [
       '',
@@ -324,7 +393,7 @@ class NetworkSession extends InteractiveSession {
       kind: 'network',
       mode: this.mode,
       variables: this.getVariables()
-    });
+    }, (rule, context) => this.executeLuaRule(rule, context));
     if (customResult?.interaction) return this.beginInteraction(customResult.interaction);
     if (customResult) return customResult;
     if (lower === 'clear' || commandMatches(command, 'clear screen')) return { clear: true };
@@ -518,6 +587,21 @@ class LinuxSession extends InteractiveSession {
     return { ok: true, auditAction: `Session user switched to ${targetUser}` };
   }
 
+  applyLuaActions(result) {
+    if (result.setMode !== null) return { ok: false, output: 'bash: Lua set_mode is only available to network simulators' };
+    if (result.setUser === null) return { ok: true, changed: false };
+    const targetUser = result.setUser.trim();
+    if (!/^[a-z_][a-z0-9_-]{0,31}$/i.test(targetUser)) {
+      return { ok: false, output: `su: invalid user ${targetUser || '(empty)'}` };
+    }
+    if (targetUser === this.username) return { ok: true, changed: false };
+    this.userStack.push({ username: this.username, cwd: this.cwd });
+    this.username = targetUser;
+    this.cwd = targetUser === 'root' ? '/root' : `/home/${targetUser}`;
+    this.state.files[this.cwd] ??= { type: 'dir' };
+    return { ok: true, changed: true, auditAction: `Lua switched session user to ${targetUser}` };
+  }
+
   execute(rawCommand) {
     const command = rawCommand.trim();
     const args = parseArgs(command);
@@ -533,7 +617,7 @@ class LinuxSession extends InteractiveSession {
       kind: 'linux',
       mode: 'shell',
       variables: this.getVariables()
-    });
+    }, (rule, context) => this.executeLuaRule(rule, context));
     if (customResult?.interaction) {
       return this.beginInteraction(customResult.interaction);
     }

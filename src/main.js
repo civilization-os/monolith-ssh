@@ -39,7 +39,7 @@ const browserFallbackRules = [{
     { id: 'su-verify', type: 'verify_variable', input: 'password', variable: 'SU_PASSWORD', failureOutput: 'su: Authentication failure' },
     { id: 'su-user', type: 'set_user', target: '{{arg1}}' },
     { id: 'su-finish', type: 'finish' }
-  ], requiresArgument: true, enabled: true
+  ], requiresArgument: true, group: '默认分组', enabled: true
 }];
 
 const state = {
@@ -57,6 +57,10 @@ const state = {
   profileInstanceId: null,
   commandRules: window.monolith ? [] : browserFallbackRules,
   savedCommandRules: window.monolith ? [] : cloneRules(browserFallbackRules),
+  collapsedRuleGroups: new Set(),
+  emptyGroups: {},
+  showAddGroupModal: false,
+  profileNotice: null,
   profileDirty: false,
   profileApplied: false,
   linuxBuiltins: window.monolith ? [] : browserFallbackBuiltins,
@@ -169,6 +173,7 @@ async function refreshAudit() {
 function cloneRules(rules) {
   return rules.map((rule) => ({
     ...rule,
+    group: rule.group ?? '默认分组',
     steps: (rule.steps ?? []).map((step) => ({ ...step, choices: step.choices ? [...step.choices] : undefined }))
   }));
 }
@@ -265,6 +270,10 @@ function updateRuleField(target) {
   if (target.dataset.ruleField === 'pattern') {
     card.querySelector('.command-rule-card__heading strong').textContent = target.value || i18next.t('profiles.untitledRule');
   }
+  if (target.dataset.ruleField === 'group') {
+    const badge = card.querySelector('.rule-group-badge');
+    if (badge) badge.textContent = target.value || i18next.t('profiles.defaultGroup');
+  }
   updateProfileDirtyIndicator();
 }
 
@@ -281,6 +290,16 @@ function createInteractionStep(type, kind) {
 
 function defaultInteractionSteps(kind) {
   return [createInteractionStep('input', kind), createInteractionStep(kind === 'network' ? 'set_mode' : 'set_user', kind), createInteractionStep('finish', kind)];
+}
+
+function defaultLuaScript() {
+  return `local count = session.get("count", 0) + 1
+session.set("count", count)
+
+return {
+  output = "call #" .. count .. " on " .. ctx.hostname,
+  ok = true
+}`;
 }
 
 function updateInteractionStepField(target) {
@@ -321,6 +340,7 @@ function validateCommandRules() {
         throw new Error(i18next.t('profiles.invalidRegex', { message: error.message }));
       }
     }
+    if (rule.behavior === 'lua' && !rule.luaScript?.trim()) throw new Error(i18next.t('profiles.luaScriptRequired'));
     if (rule.behavior !== 'interactive') continue;
     if (!rule.steps?.length) throw new Error(i18next.t('profiles.interactionStepsRequired'));
     const finishIndex = rule.steps.findIndex((step) => step.type === 'finish');
@@ -363,8 +383,10 @@ function createRule(overrides = {}) {
     pattern: '',
     output: '',
     behavior: 'output',
+    luaScript: defaultLuaScript(),
     steps: [],
     requiresArgument: false,
+    group: overrides.group ?? i18next.t('profiles.defaultGroup'),
     enabled: true,
     ...overrides
   };
@@ -778,6 +800,392 @@ document.addEventListener('click', async (event) => {
     return;
   }
 
+  if (event.target.closest('[data-preview-active-groups]')) {
+    state.showPreviewActiveGroupsModal = true;
+    render();
+    return;
+  }
+
+  if (event.target.closest('[data-close-preview-active-groups]')) {
+    state.showPreviewActiveGroupsModal = false;
+    render();
+    return;
+  }
+
+  if (event.target.closest('[data-open-add-group]')) {
+    state.showAddGroupModal = true;
+    render();
+    setTimeout(() => {
+      document.querySelector('[data-new-group-name]')?.focus();
+    }, 20);
+    return;
+  }
+
+  if (event.target.closest('[data-close-add-group]')) {
+    state.showAddGroupModal = false;
+    render();
+    return;
+  }
+
+  if (event.target.closest('[data-confirm-add-group]')) {
+    const input = document.querySelector('[data-new-group-name]');
+    const name = input?.value?.trim();
+    if (!name) return;
+
+    const targetInstance = state.instances.find((instance) => instance.id === state.profileInstanceId) ?? null;
+    const scope = state.profileScope === 'instance' && targetInstance ? 'instance' : 'type';
+    const kind = scope === 'instance' ? targetInstance.kind : state.profileKind;
+    const scopeKey = scope === 'instance' ? `instance:${targetInstance?.id}` : `type:${kind}`;
+
+    state.emptyGroups ??= {};
+    state.emptyGroups[scopeKey] ??= [];
+
+    const existingGroups = new Set(
+      state.commandRules
+        .filter((r) => r.scope === scope && (scope === 'instance' ? r.instanceId === targetInstance.id : r.kind === kind))
+        .map((r) => r.group?.trim() || i18next.t('profiles.defaultGroup'))
+        .concat(state.emptyGroups[scopeKey])
+    );
+    if (existingGroups.has(name)) {
+      state.profileNotice = { type: 'error', message: i18next.t('profiles.groupAlreadyExists') };
+      state.showAddGroupModal = false;
+      render();
+      return;
+    }
+
+    state.emptyGroups[scopeKey].push(name);
+    state.showAddGroupModal = false;
+    state.profileDirty = true;
+    state.profileApplied = false;
+    state.profileNotice = null;
+    render();
+    return;
+  }
+
+  const moveGroupBtn = event.target.closest('[data-move-rule-group]');
+  if (moveGroupBtn) {
+    const groupName = moveGroupBtn.dataset.moveRuleGroup;
+    const direction = moveGroupBtn.dataset.direction;
+    const targetInstance = state.instances.find((instance) => instance.id === state.profileInstanceId) ?? null;
+    const scope = state.profileScope === 'instance' && targetInstance ? 'instance' : 'type';
+    const kind = scope === 'instance' ? targetInstance.kind : state.profileKind;
+    const defaultGroupName = i18next.t('profiles.defaultGroup');
+    const scopeKey = scope === 'instance' ? `instance:${targetInstance?.id}` : `type:${kind}`;
+
+    const currentScopeRules = state.commandRules.filter((r) => {
+      return r.scope === scope && (scope === 'instance' ? r.instanceId === targetInstance.id : r.kind === kind);
+    });
+    const otherScopeRules = state.commandRules.filter((r) => {
+      return !(r.scope === scope && (scope === 'instance' ? r.instanceId === targetInstance.id : r.kind === kind));
+    });
+
+    const currentGroupOrder = [];
+    for (const r of currentScopeRules) {
+      const g = r.group?.trim() || defaultGroupName;
+      if (!currentGroupOrder.includes(g)) currentGroupOrder.push(g);
+    }
+    state.emptyGroups ??= {};
+    const emptyList = state.emptyGroups[scopeKey] ?? [];
+    for (const eg of emptyList) {
+      if (!currentGroupOrder.includes(eg)) currentGroupOrder.push(eg);
+    }
+
+    const currentIndex = currentGroupOrder.indexOf(groupName);
+    if (currentIndex >= 0) {
+      const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+      if (targetIndex >= 0 && targetIndex < currentGroupOrder.length) {
+        const temp = currentGroupOrder[currentIndex];
+        currentGroupOrder[currentIndex] = currentGroupOrder[targetIndex];
+        currentGroupOrder[targetIndex] = temp;
+
+        currentScopeRules.sort((a, b) => {
+          const gA = a.group?.trim() || defaultGroupName;
+          const gB = b.group?.trim() || defaultGroupName;
+          return currentGroupOrder.indexOf(gA) - currentGroupOrder.indexOf(gB);
+        });
+
+        if (state.emptyGroups[scopeKey]) {
+          state.emptyGroups[scopeKey].sort((a, b) => currentGroupOrder.indexOf(a) - currentGroupOrder.indexOf(b));
+        }
+
+        state.commandRules = [...otherScopeRules, ...currentScopeRules];
+        state.profileDirty = true;
+        state.profileApplied = false;
+        render();
+      }
+    }
+    return;
+  }
+
+  const ruleCollapse = event.target.closest('[data-toggle-rule-collapse]');
+  if (ruleCollapse) {
+    const ruleId = ruleCollapse.dataset.toggleRuleCollapse;
+    state.collapsedRules ??= new Set();
+    if (state.collapsedRules.has(ruleId)) {
+      state.collapsedRules.delete(ruleId);
+    } else {
+      state.collapsedRules.add(ruleId);
+    }
+    render();
+    return;
+  }
+
+  const groupRulesCollapse = event.target.closest('[data-toggle-group-rules-collapse]');
+  if (groupRulesCollapse) {
+    const groupName = groupRulesCollapse.dataset.toggleGroupRulesCollapse;
+    const defaultGroupName = i18next.t('profiles.defaultGroup');
+    const targetInstance = state.instances.find((instance) => instance.id === state.profileInstanceId) ?? null;
+    const scope = state.profileScope === 'instance' && targetInstance ? 'instance' : 'type';
+    const kind = scope === 'instance' ? targetInstance.kind : state.profileKind;
+
+    const groupRuleIds = state.commandRules
+      .filter((r) => r.scope === scope
+        && (scope === 'instance' ? r.instanceId === targetInstance.id : r.kind === kind)
+        && (r.group?.trim() || defaultGroupName) === groupName)
+      .map((r) => r.id);
+
+    state.collapsedRules ??= new Set();
+    const allGroupRulesCollapsed = groupRuleIds.length > 0 && groupRuleIds.every((id) => state.collapsedRules.has(id));
+    if (allGroupRulesCollapsed) {
+      for (const id of groupRuleIds) state.collapsedRules.delete(id);
+    } else {
+      for (const id of groupRuleIds) state.collapsedRules.add(id);
+    }
+    render();
+    return;
+  }
+
+  const groupCollapse = event.target.closest('[data-toggle-group-collapse]');
+  if (groupCollapse) {
+    const groupName = groupCollapse.dataset.toggleGroupCollapse;
+    state.collapsedRuleGroups ??= new Set();
+    if (state.collapsedRuleGroups.has(groupName)) {
+      state.collapsedRuleGroups.delete(groupName);
+    } else {
+      state.collapsedRuleGroups.add(groupName);
+    }
+    render();
+    return;
+  }
+
+  if (event.target.closest('[data-toggle-all-groups]')) {
+    state.collapsedRuleGroups ??= new Set();
+    const targetInstance = state.instances.find((instance) => instance.id === state.profileInstanceId) ?? null;
+    const scope = state.profileScope === 'instance' && targetInstance ? 'instance' : 'type';
+    const kind = scope === 'instance' ? targetInstance.kind : state.profileKind;
+    const currentRules = state.commandRules.filter((rule) => rule.scope === scope
+      && (scope === 'instance' ? rule.instanceId === targetInstance.id : rule.kind === kind));
+    const groupNames = Array.from(new Set(currentRules.map((r) => r.group?.trim() || i18next.t('profiles.defaultGroup'))));
+    const allCollapsed = groupNames.length > 0 && groupNames.every((name) => state.collapsedRuleGroups.has(name));
+    if (allCollapsed) {
+      for (const name of groupNames) state.collapsedRuleGroups.delete(name);
+    } else {
+      for (const name of groupNames) state.collapsedRuleGroups.add(name);
+    }
+    render();
+    return;
+  }
+
+  if (event.target.closest('[data-toggle-all-rules]')) {
+    state.collapsedRules ??= new Set();
+    const targetInstance = state.instances.find((instance) => instance.id === state.profileInstanceId) ?? null;
+    const scope = state.profileScope === 'instance' && targetInstance ? 'instance' : 'type';
+    const kind = scope === 'instance' ? targetInstance.kind : state.profileKind;
+    const currentRules = state.commandRules.filter((rule) => rule.scope === scope
+      && (scope === 'instance' ? rule.instanceId === targetInstance.id : rule.kind === kind));
+    const ruleIds = currentRules.map((r) => r.id);
+    const allRulesCollapsed = ruleIds.length > 0 && ruleIds.every((id) => state.collapsedRules.has(id));
+    if (allRulesCollapsed) {
+      for (const id of ruleIds) state.collapsedRules.delete(id);
+    } else {
+      for (const id of ruleIds) state.collapsedRules.add(id);
+    }
+    render();
+    return;
+  }
+
+  const exportGroupBtn = event.target.closest('[data-export-rule-group]');
+  const exportRulesBtn = event.target.closest('[data-export-rules]');
+  if (exportGroupBtn || exportRulesBtn) {
+    const targetInstance = state.instances.find((instance) => instance.id === state.profileInstanceId) ?? null;
+    const scope = state.profileScope === 'instance' && targetInstance ? 'instance' : 'type';
+    const kind = scope === 'instance' ? targetInstance.kind : state.profileKind;
+    const filterGroup = exportGroupBtn ? exportGroupBtn.dataset.exportRuleGroup : null;
+
+    const exportedRules = state.commandRules.filter((rule) => {
+      const matchScope = rule.scope === scope && (scope === 'instance' ? rule.instanceId === targetInstance.id : rule.kind === kind);
+      if (!matchScope) return false;
+      if (filterGroup) {
+        const ruleGroup = rule.group?.trim() || i18next.t('profiles.defaultGroup');
+        return ruleGroup === filterGroup;
+      }
+      return true;
+    });
+
+    const payload = {
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      scope,
+      kind,
+      group: filterGroup || undefined,
+      rules: exportedRules
+    };
+    const content = JSON.stringify(payload, null, 2);
+    const safeName = (filterGroup || (scope === 'instance' ? targetInstance?.name : kind) || 'rules').replace(/[^a-zA-Z0-9_\-\u4e00-\u9fa5]/g, '_');
+    const suggestedName = `monolithssh-rules-${safeName}.json`;
+
+    if (window.monolith?.commands?.exportRules) {
+      try {
+        const result = await window.monolith.commands.exportRules({ content, suggestedName });
+        if (result?.saved) {
+          state.profileNotice = { type: 'success', message: i18next.t('profiles.exportSuccess', { count: exportedRules.length, path: result.path }) };
+          render();
+        }
+      } catch (err) {
+        state.profileNotice = { type: 'error', message: err.message };
+        render();
+      }
+    } else {
+      const blob = new Blob([content], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = suggestedName;
+      a.click();
+      URL.revokeObjectURL(url);
+      state.profileNotice = { type: 'success', message: i18next.t('profiles.exportSuccess', { count: exportedRules.length, path: suggestedName }) };
+      render();
+    }
+    return;
+  }
+
+  if (event.target.closest('[data-import-rules]')) {
+    const handleImportContent = (raw) => {
+      try {
+        const parsed = JSON.parse(raw);
+        let incomingRules = [];
+        if (Array.isArray(parsed)) {
+          incomingRules = parsed;
+        } else if (Array.isArray(parsed.rules)) {
+          incomingRules = parsed.rules;
+        } else if (parsed && typeof parsed === 'object' && parsed.pattern) {
+          incomingRules = [parsed];
+        } else {
+          throw new Error(i18next.t('profiles.invalidFormat'));
+        }
+
+        if (incomingRules.length === 0) {
+          throw new Error(i18next.t('profiles.invalidFormat'));
+        }
+
+        const targetInstance = state.instances.find((instance) => instance.id === state.profileInstanceId) ?? null;
+        const scope = state.profileScope === 'instance' && targetInstance ? 'instance' : 'type';
+        const kind = scope === 'instance' ? targetInstance.kind : state.profileKind;
+        const defaultGroupName = i18next.t('profiles.defaultGroup');
+
+        const normalizedRules = incomingRules.map((rule, idx) => ({
+          id: `rule-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+          scope,
+          kind,
+          instanceId: scope === 'instance' ? targetInstance.id : null,
+          pattern: String(rule.pattern || '').trim(),
+          matchType: ['exact', 'regex', 'command'].includes(rule.matchType) ? rule.matchType : 'exact',
+          mode: rule.mode || (kind === 'network' ? 'any' : 'shell'),
+          behavior: ['output', 'interactive', 'lua'].includes(rule.behavior) ? rule.behavior : 'output',
+          output: typeof rule.output === 'string' ? rule.output : '',
+          group: (rule.group?.trim() || defaultGroupName).slice(0, 64),
+          enabled: rule.enabled !== false,
+          requiresArgument: Boolean(rule.requiresArgument),
+          steps: Array.isArray(rule.steps) ? rule.steps.map((s, sIdx) => ({
+            id: `step-${Date.now()}-${sIdx}-${Math.random().toString(36).slice(2, 6)}`,
+            type: s.type || 'output',
+            prompt: s.prompt || '',
+            secret: Boolean(s.secret),
+            saveAs: s.saveAs || '',
+            input: s.input || '',
+            variable: s.variable || '',
+            choices: Array.isArray(s.choices) ? s.choices : [],
+            caseSensitive: Boolean(s.caseSensitive),
+            failureOutput: s.failureOutput || '',
+            target: s.target || '',
+            text: s.text || ''
+          })) : [],
+          luaScript: typeof rule.luaScript === 'string' ? rule.luaScript : ''
+        }));
+
+        state.commandRules.push(...normalizedRules);
+        state.profileDirty = true;
+        state.profileApplied = false;
+        state.profileNotice = { type: 'success', message: i18next.t('profiles.importSuccess', { count: normalizedRules.length }) };
+        render();
+      } catch (err) {
+        state.profileNotice = { type: 'error', message: i18next.t('profiles.importFailed', { error: err.message }) };
+        render();
+      }
+    };
+
+    if (window.monolith?.commands?.importRules) {
+      try {
+        const result = await window.monolith.commands.importRules();
+        if (!result?.canceled && result?.content) {
+          handleImportContent(result.content);
+        }
+      } catch (err) {
+        state.profileNotice = { type: 'error', message: i18next.t('profiles.importFailed', { error: err.message }) };
+        render();
+      }
+    } else {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json,application/json';
+      input.onchange = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => handleImportContent(evt.target.result);
+        reader.readAsText(file);
+      };
+      input.click();
+    }
+    return;
+  }
+
+  const toggleGroup = event.target.closest('[data-toggle-rule-group]');
+  if (toggleGroup) {
+    const groupName = toggleGroup.dataset.toggleRuleGroup;
+    const targetEnable = toggleGroup.dataset.targetState === 'enable';
+    const defaultGroupName = i18next.t('profiles.defaultGroup');
+    const targetInstance = state.instances.find((instance) => instance.id === state.profileInstanceId) ?? null;
+    const scope = state.profileScope === 'instance' && targetInstance ? 'instance' : 'type';
+    const kind = scope === 'instance' ? targetInstance.kind : state.profileKind;
+
+    for (const rule of state.commandRules) {
+      const matchScope = rule.scope === scope && (scope === 'instance' ? rule.instanceId === targetInstance.id : rule.kind === kind);
+      if (!matchScope) continue;
+      const ruleGroup = rule.group?.trim() || defaultGroupName;
+      if (ruleGroup === groupName) {
+        rule.enabled = targetEnable;
+      }
+    }
+    state.profileDirty = true;
+    state.profileApplied = false;
+    render();
+    return;
+  }
+
+  const addInGroup = event.target.closest('[data-add-rule-in-group]');
+  if (addInGroup) {
+    const group = addInGroup.dataset.addRuleInGroup;
+    state.commandRules.push(createRule({ group }));
+    state.profileDirty = true;
+    state.profileApplied = false;
+    render();
+    const groupSection = document.querySelector(`[data-rule-group="${CSS.escape(group)}"]`);
+    const patternInputs = groupSection ? groupSection.querySelectorAll('[data-rule-field="pattern"]') : document.querySelectorAll('[data-rule-field="pattern"]');
+    patternInputs[patternInputs.length - 1]?.focus();
+    return;
+  }
+
   if (event.target.closest('[data-add-rule]')) {
     state.commandRules.push(createRule());
     state.profileDirty = true;
@@ -1002,6 +1410,10 @@ document.addEventListener('change', async (event) => {
       const card = event.target.closest('[data-rule-id]');
       const rule = state.commandRules.find((item) => item.id === card?.dataset.ruleId);
       if (rule?.behavior === 'interactive' && !rule.steps?.length) rule.steps = defaultInteractionSteps(rule.kind);
+      if (rule?.behavior === 'lua' && !rule.luaScript?.trim()) rule.luaScript = defaultLuaScript();
+      render();
+    }
+    if (event.target.dataset.ruleField === 'group') {
       render();
     }
     return;
@@ -1144,6 +1556,21 @@ window.addEventListener('beforeunload', () => {
   removeMcpListener?.();
   removeMcpDataChangedListener?.();
   if (mcpRefreshTimer) clearTimeout(mcpRefreshTimer);
+});
+
+document.addEventListener('keydown', (event) => {
+  if (state.showAddGroupModal) {
+    if (event.key === 'Escape') {
+      state.showAddGroupModal = false;
+      render();
+    } else if (event.key === 'Enter') {
+      const input = document.querySelector('[data-new-group-name]');
+      if (input && document.activeElement === input) {
+        event.preventDefault();
+        document.querySelector('[data-confirm-add-group]')?.click();
+      }
+    }
+  }
 });
 
 mountShell();

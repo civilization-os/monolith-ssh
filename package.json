@@ -1,6 +1,6 @@
 {
   "name": "monolith-ssh",
-  "version": "0.3.0",
+  "version": "0.3.5",
   "private": true,
   "author": "MonolithSSH Team",
   "copyright": "Copyright © 2026 MonolithSSH Team",
@@ -12,12 +12,13 @@
     "build": "vite build",
     "dist": "npm run build && electron-builder --publish never && npm run verify:installer",
     "dist:win64": "npm run build && electron-builder --win nsis --x64 --publish never && npm run verify:installer",
-    "check": "node --check electron/main.cjs && node --check electron/preload.cjs && node --check electron/mcp-sse-gateway.cjs && node --check electron/ssh-client-manager.cjs && node --check electron/credential-utils.cjs && node --check electron/credential-vault.cjs && node --check electron/port-diagnostics.cjs && node --check simulator/service.cjs && node --check simulator/service-core.cjs && node scripts/check-installer.cjs --config && vite build && node scripts/check-dist.cjs",
+    "check": "node --check electron/main.cjs && node --check electron/preload.cjs && node --check electron/mcp-sse-gateway.cjs && node --check electron/ssh-client-manager.cjs && node --check electron/credential-utils.cjs && node --check electron/credential-vault.cjs && node --check electron/port-diagnostics.cjs && node --check simulator/service.cjs && node --check simulator/service-core.cjs && node --check simulator/lua-runtime.cjs && node scripts/check-installer.cjs --config && vite build && node scripts/check-dist.cjs",
     "verify:installer": "node scripts/check-installer.cjs --artifact",
     "smoke:ssh": "node scripts/smoke-ssh.cjs",
     "smoke:ports": "node scripts/smoke-port-conflict.cjs",
     "smoke:bind": "node scripts/smoke-bind-scope.cjs",
     "smoke:mcp": "node scripts/smoke-mcp.cjs",
+    "smoke:lua": "node scripts/smoke-lua.cjs",
     "probe:ssh": "node scripts/probe-running.cjs"
   },
   "build": {
@@ -74,6 +75,7 @@
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
+    "fengari": "^0.1.5",
     "i18next": "^26.3.6",
     "react-i18next": "^17.0.11",
     "ssh2": "^1.17.0"
