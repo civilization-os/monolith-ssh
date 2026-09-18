@@ -38,9 +38,11 @@ const RULE_SCHEMA = Object.freeze({
     matchType: { type: 'string', enum: ['exact', 'command', 'regex'] },
     pattern: { type: 'string', minLength: 1, maxLength: 200 },
     output: { type: 'string', maxLength: 20000 },
-    behavior: { type: 'string', enum: ['output', 'interactive'] },
+    behavior: { type: 'string', enum: ['output', 'interactive', 'lua'] },
+    luaScript: { type: 'string', maxLength: 20000 },
     steps: { type: 'array', maxItems: 20, items: RULE_STEP_SCHEMA },
     requiresArgument: { type: 'boolean' },
+    group: { type: 'string', maxLength: 64 },
     enabled: { type: 'boolean' }
   },
   additionalProperties: false

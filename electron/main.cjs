@@ -158,6 +158,28 @@ function registerIpcHandlers() {
   }));
   ipcMain.handle('commands:list', () => simulator.request('commands:list'));
   ipcMain.handle('commands:save', (_event, rules) => simulator.request('commands:save', { rules }));
+  ipcMain.handle('commands:export-rules', async (event, { content, suggestedName }) => {
+    const owner = BrowserWindow.fromWebContents(event.sender);
+    const result = await dialog.showSaveDialog(owner, {
+      title: 'Export Command Rules',
+      defaultPath: String(suggestedName || 'monolithssh-rules.json'),
+      filters: [{ name: 'JSON files', extensions: ['json'] }]
+    });
+    if (result.canceled || !result.filePath) return { saved: false };
+    fs.writeFileSync(result.filePath, String(content), 'utf8');
+    return { saved: true, path: result.filePath };
+  });
+  ipcMain.handle('commands:import-rules', async (event) => {
+    const owner = BrowserWindow.fromWebContents(event.sender);
+    const result = await dialog.showOpenDialog(owner, {
+      title: 'Import Command Rules',
+      filters: [{ name: 'JSON files', extensions: ['json'] }],
+      properties: ['openFile']
+    });
+    if (result.canceled || !result.filePaths || result.filePaths.length === 0) return { canceled: true };
+    const raw = fs.readFileSync(result.filePaths[0], 'utf8');
+    return { canceled: false, path: result.filePaths[0], content: raw };
+  });
   ipcMain.handle('variables:list', () => simulator.request('variables:list'));
   ipcMain.handle('variables:save', (_event, variables) => simulator.request('variables:save', { variables }));
   ipcMain.handle('builtins:list', () => simulator.request('builtins:list'));

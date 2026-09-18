@@ -31,7 +31,9 @@ contextBridge.exposeInMainWorld('monolith', {
   },
   commands: {
     list: () => ipcRenderer.invoke('commands:list'),
-    save: (rules) => ipcRenderer.invoke('commands:save', rules)
+    save: (rules) => ipcRenderer.invoke('commands:save', rules),
+    exportRules: (payload) => ipcRenderer.invoke('commands:export-rules', payload),
+    importRules: () => ipcRenderer.invoke('commands:import-rules')
   },
   variables: {
     list: () => ipcRenderer.invoke('variables:list'),

@@ -26,7 +26,7 @@ export function renderShell() {
       <aside class="sidebar">
         <div class="sidebar__brand">
           <div class="brand-mark">${icon('logo')}</div>
-          <div><div class="brand-title"><span>MONOLITH</span><b>SSH</b></div><span class="brand-version" data-app-version>v0.3.0-desktop</span></div>
+          <div><div class="brand-title"><span>MONOLITH</span><b>SSH</b></div><span class="brand-version" data-app-version>v0.3.3-desktop</span></div>
         </div>
 
         <span class="sidebar__label">CONTROL DECK</span>

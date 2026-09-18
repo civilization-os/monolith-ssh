@@ -5,6 +5,7 @@ const net = require('node:net');
 const path = require('node:path');
 const { Server, utils } = require('ssh2');
 const { createDefaultState, createSession, LINUX_BUILTIN_COMMANDS, normalizeOutput } = require('./engines.cjs');
+const { validateLuaScript, MAX_SCRIPT_LENGTH } = require('./lua-runtime.cjs');
 
 function safeEqual(left, right) {
   const leftBuffer = Buffer.from(String(left));
@@ -143,6 +144,7 @@ function defaultCommandRules() {
       { id: 'su-finish', type: 'finish' }
     ],
     requiresArgument: true,
+    group: '默认分组',
     enabled: true
   }];
 }
@@ -231,8 +233,19 @@ function normalizeCommandRule(input, index) {
     throw new Error(`Rule ${index + 1}: device-level rules require a valid instance ID`);
   }
 
-  const behavior = input.behavior === 'interactive' ? 'interactive' : 'output';
-  const rawSteps = Array.isArray(input.steps) ? input.steps : legacyInteractionSteps(input);
+  const behavior = ['interactive', 'lua'].includes(input.behavior) ? input.behavior : 'output';
+  const luaScript = behavior === 'lua' ? String(input.luaScript ?? '') : '';
+  if (luaScript.length > MAX_SCRIPT_LENGTH) throw new Error(`Rule ${index + 1}: Lua script exceeds ${MAX_SCRIPT_LENGTH} characters`);
+  if (behavior === 'lua') {
+    try {
+      validateLuaScript(luaScript);
+    } catch (error) {
+      throw new Error(`Rule ${index + 1}: ${error.message}`);
+    }
+  }
+  const rawSteps = behavior === 'interactive'
+    ? (Array.isArray(input.steps) ? input.steps : legacyInteractionSteps(input))
+    : [];
   if (behavior === 'interactive' && (!rawSteps.length || rawSteps.length > 20)) {
     throw new Error(`Rule ${index + 1}: interactive rules require 1-20 steps`);
   }
@@ -249,6 +262,10 @@ function normalizeCommandRule(input, index) {
     }
   }
 
+  const group = typeof input?.group === 'string' && input.group.trim()
+    ? input.group.trim().slice(0, 64)
+    : '默认分组';
+
   return {
     id: typeof input.id === 'string' && input.id.length <= 100 ? input.id : randomUUID(),
     kind,
@@ -259,8 +276,10 @@ function normalizeCommandRule(input, index) {
     pattern,
     output,
     behavior,
+    luaScript,
     steps,
     requiresArgument: input.requiresArgument === true,
+    group,
     enabled: input.enabled !== false
   };
 }
@@ -809,7 +828,7 @@ class SimulatorService extends EventEmitter {
     runtime.mcpEngine = result.awaitInput === true ? engine : null;
     this.recordAudit({
       type: 'command',
-      ok: true,
+      ok: result.ok !== false,
       instanceId: instance.id,
       instanceName: instance.name,
       source: 'mcp',
@@ -1061,7 +1080,7 @@ class SimulatorService extends EventEmitter {
             const result = engine.execute(execInfo.command);
             this.recordAudit({
               type: 'command',
-              ok: true,
+              ok: result.ok !== false,
               instanceId: instance.id,
               instanceName: instance.name,
               source: info.ip,
@@ -1069,7 +1088,7 @@ class SimulatorService extends EventEmitter {
               action: execInfo.command
             });
             if (result.output) stream.write(`${normalizeOutput(result.output)}\r\n`);
-            stream.exit(0);
+            stream.exit(result.ok === false ? 1 : 0);
             stream.end();
           });
         });
@@ -1190,7 +1209,7 @@ class SimulatorService extends EventEmitter {
             historyIndex = history.length;
           }
           const result = engine.execute(submitted);
-          this.recordAudit({ type: 'command', ok: true, instanceId: instance.id, instanceName: instance.name, source, credentials: `${username} / ${authenticationMethod}`, action: submitted || '(empty)' });
+          this.recordAudit({ type: 'command', ok: result.ok !== false, instanceId: instance.id, instanceName: instance.name, source, credentials: `${username} / ${authenticationMethod}`, action: (result.auditAction ?? submitted) || '(empty)' });
           if (result.clear) stream.write('\x1b[2J\x1b[H');
           if (result.output) stream.write(`${normalizeOutput(result.output)}\r\n`);
           if (result.exit) {

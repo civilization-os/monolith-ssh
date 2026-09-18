@@ -129,6 +129,9 @@ async function main() {
     assert.equal(MCP_TOOL_COUNT, 25);
     assert.equal(listed.result.tools.find((tool) => tool.name === 'monolith_get_instance_access').annotations.readOnlyHint, true);
     assert.equal(listed.result.tools.find((tool) => tool.name === 'monolith_delete_instance').annotations.destructiveHint, true);
+    const createRuleTool = listed.result.tools.find((tool) => tool.name === 'monolith_create_command_rule');
+    assert.ok(createRuleTool.inputSchema.properties.rule.properties.behavior.enum.includes('lua'));
+    assert.equal(createRuleTool.inputSchema.properties.rule.properties.luaScript.maxLength, 20000);
 
     const variables = await postJson(`${origin}/mcp`, rpc(3, 'tools/call', {
       name: 'monolith_get_variables',
@@ -175,11 +178,12 @@ async function main() {
       arguments: {
         rule: {
           kind: 'linux', scope: 'type', instanceId: null, mode: 'all', matchType: 'exact',
-          pattern: 'hello', output: 'hello from MCP', behavior: 'output', steps: [], enabled: true
+          pattern: 'hello', output: '', behavior: 'lua', luaScript: 'return { output = "hello from MCP" }', steps: [], enabled: true
         }
       }
     }));
     assert.ok(calls.some((entry) => entry.method === 'commands:create' && entry.payload.pattern === 'hello'));
+    assert.ok(calls.some((entry) => entry.method === 'commands:create' && entry.payload.behavior === 'lua'));
 
     await postJson(`${origin}/mcp`, rpc(10, 'tools/call', {
       name: 'monolith_update_command_rule',

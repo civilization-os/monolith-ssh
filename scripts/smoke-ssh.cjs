@@ -210,6 +210,10 @@ async function main() {
       {
         id: 'su-interaction-smoke', kind: 'linux', scope: 'type', instanceId: null, mode: 'shell', matchType: 'command', pattern: 'su', output: '', behavior: 'interactive',
         inputPrompt: 'Password:', inputSecret: true, verifyVariable: 'SU_PASSWORD', action: 'switch_user', target: '{{arg1}}', successOutput: '', failureOutput: 'su: Authentication failure', requiresArgument: true, enabled: true
+      },
+      {
+        id: 'lua-counter-smoke', kind: 'linux', scope: 'type', instanceId: null, mode: 'shell', matchType: 'exact', pattern: 'lua-counter', output: '', behavior: 'lua',
+        luaScript: 'local s=session.get("count",0)+1; local i=instance.get("count",0)+1; session.set("count",s); instance.set("count",i); return { output="session="..s.." instance="..i }', enabled: true
       }
     ] });
     const migratedSuRule = service.listCommandRules().find((rule) => rule.id === 'su-interaction-smoke');
@@ -260,9 +264,24 @@ async function main() {
     terminalClients.write(linuxSessionId, 'exit\r');
     await waitFor(() => terminalEvents.slice(beforeExitUser).some((event) => event.channel === 'terminal:data' && event.payload.data.includes('root@')));
     if (service.listAudit().some((event) => String(event.action).includes('new-secret'))) throw new Error('Secret interaction input leaked into audit events');
+
+    const beforeLuaFirst = terminalEvents.length;
+    terminalClients.write(linuxSessionId, 'lua-counter\r');
+    await waitFor(() => terminalEvents.slice(beforeLuaFirst).some((event) => event.channel === 'terminal:data' && event.payload.data.includes('session=1 instance=1')));
+    const beforeLuaSecond = terminalEvents.length;
+    terminalClients.write(linuxSessionId, 'lua-counter\r');
+    await waitFor(() => terminalEvents.slice(beforeLuaSecond).some((event) => event.channel === 'terminal:data' && event.payload.data.includes('session=2 instance=2')));
+    service.updateCommandRule('lua-counter-smoke', {
+      luaScript: 'local i=instance.get("count",0)+1; instance.set("count",i); return { output="hot-script="..i }'
+    });
+    const beforeLuaReload = terminalEvents.length;
+    terminalClients.write(linuxSessionId, 'lua-counter\r');
+    await waitFor(() => terminalEvents.slice(beforeLuaReload).some((event) => event.channel === 'terminal:data' && event.payload.data.includes('hot-script=3')));
+    const persistedLuaState = JSON.parse(fs.readFileSync(path.join(tempRoot, 'states', `${linux.id}.json`), 'utf8'));
+    if (persistedLuaState.lua?.['lua-counter-smoke']?.count !== 3) throw new Error('Lua instance state was not persisted');
     terminalClients.closeAll();
 
-    console.log(`SSH smoke test passed: ${network.address}, ${linux.address}, password/public-key authentication, live credential rotation, rules, recoverable built-ins, su, choice and network-mode interactions`);
+    console.log(`SSH smoke test passed: ${network.address}, ${linux.address}, authentication, hot-loaded rules, Lua state, built-ins and interactions`);
   } finally {
     terminalClients.closeAll();
     await service.shutdown();

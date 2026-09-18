@@ -43,6 +43,9 @@ jobs:
       - name: Smoke test MCP gateway
         run: npm run smoke:mcp
 
+      - name: Smoke test Lua engine
+        run: npm run smoke:lua
+
       - name: Smoke test bind scopes
         run: npm run smoke:bind
 

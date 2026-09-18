@@ -377,6 +377,8 @@
   font-size: var(--font-size-xs);
   letter-spacing: var(--letter-spacing-label);
   text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .link-button {

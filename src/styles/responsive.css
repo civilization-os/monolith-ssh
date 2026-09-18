@@ -38,6 +38,15 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .lua-rule-editor__workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lua-api-reference {
+    border-top: var(--border-thin) solid var(--color-shell-border);
+    border-left: 0;
+  }
+
 }
 
 @media (max-width: 960px) {
