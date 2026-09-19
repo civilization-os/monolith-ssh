@@ -60,6 +60,7 @@ const state = {
   collapsedRuleGroups: new Set(),
   emptyGroups: {},
   showAddGroupModal: false,
+  ruleSearchQuery: '',
   profileNotice: null,
   profileDirty: false,
   profileApplied: false,
@@ -1173,8 +1174,17 @@ document.addEventListener('click', async (event) => {
     return;
   }
 
+  if (event.target.closest('[data-clear-rule-search]')) {
+    state.ruleSearchQuery = '';
+    render();
+    const search = document.querySelector('[data-rule-search-input]');
+    search?.focus();
+    return;
+  }
+
   const addInGroup = event.target.closest('[data-add-rule-in-group]');
   if (addInGroup) {
+    state.ruleSearchQuery = '';
     const group = addInGroup.dataset.addRuleInGroup;
     state.commandRules.push(createRule({ group }));
     state.profileDirty = true;
@@ -1187,6 +1197,7 @@ document.addEventListener('click', async (event) => {
   }
 
   if (event.target.closest('[data-add-rule]')) {
+    state.ruleSearchQuery = '';
     state.commandRules.push(createRule());
     state.profileDirty = true;
     state.profileApplied = false;
@@ -1372,6 +1383,35 @@ document.addEventListener('input', (event) => {
     const search = document.querySelector('[data-audit-search]');
     search?.focus();
     search?.setSelectionRange(search.value.length, search.value.length);
+    return;
+  }
+
+  if (event.target.matches('[data-rule-search-input]')) {
+    state.ruleSearchQuery = event.target.value;
+    render();
+    const search = document.querySelector('[data-rule-search-input]');
+    if (search) {
+      search.focus();
+      const len = search.value.length;
+      search.setSelectionRange(len, len);
+    }
+    return;
+  }
+});
+
+document.addEventListener('search', (event) => {
+  if (event.target.matches('[data-rule-search-input]')) {
+    state.ruleSearchQuery = event.target.value;
+    render();
+  }
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && event.target.matches('[data-rule-search-input]')) {
+    state.ruleSearchQuery = '';
+    render();
+    const search = document.querySelector('[data-rule-search-input]');
+    search?.focus();
   }
 });
 

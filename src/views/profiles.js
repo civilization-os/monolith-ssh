@@ -286,6 +286,36 @@ export function renderProfiles(state) {
     }
   }
 
+  const query = (state.ruleSearchQuery || '').trim().toLowerCase();
+  const isSearching = Boolean(query);
+
+  const isRuleMatch = (r) => {
+    if (!query) return true;
+    if (r.pattern && r.pattern.toLowerCase().includes(query)) return true;
+    if (r.group && r.group.toLowerCase().includes(query)) return true;
+    if (r.output && r.output.toLowerCase().includes(query)) return true;
+    if (r.luaScript && r.luaScript.toLowerCase().includes(query)) return true;
+    if (r.mode && r.mode.toLowerCase().includes(query)) return true;
+    if (r.steps && r.steps.some((s) =>
+      (s.prompt && s.prompt.toLowerCase().includes(query)) ||
+      (s.saveAs && s.saveAs.toLowerCase().includes(query)) ||
+      (s.text && s.text.toLowerCase().includes(query)) ||
+      (s.target && s.target.toLowerCase().includes(query)) ||
+      (s.failureOutput && s.failureOutput.toLowerCase().includes(query))
+    )) return true;
+    return false;
+  };
+
+  const matchedRules = rules.filter(isRuleMatch);
+
+  const visibleGroupOrder = isSearching
+    ? groupOrder.filter((groupName) => {
+        const groupMatches = groupName.toLowerCase().includes(query);
+        const gRules = groupedRules.get(groupName) ?? [];
+        return groupMatches || gRules.some(isRuleMatch);
+      })
+    : groupOrder;
+
   const collapsedGroupSet = state.collapsedRuleGroups ?? new Set();
   const collapsedRuleSet = state.collapsedRules ?? new Set();
   const allGroupsCollapsed = groupOrder.length > 0 && groupOrder.every((name) => collapsedGroupSet.has(name));
@@ -293,6 +323,9 @@ export function renderProfiles(state) {
   const allRulesCollapsed = currentScopeRuleIds.length > 0 && currentScopeRuleIds.every((id) => collapsedRuleSet.has(id));
 
   const renderGroupSection = (groupName, groupRules, groupIndex, totalGroups) => {
+    const groupNameMatches = isSearching && groupName.toLowerCase().includes(query);
+    const displayRules = isSearching && !groupNameMatches ? groupRules.filter(isRuleMatch) : groupRules;
+
     const totalCount = groupRules.length;
     const enabledCount = groupRules.filter((r) => r.enabled).length;
     const allEnabled = totalCount > 0 && enabledCount === totalCount;
@@ -304,11 +337,11 @@ export function renderProfiles(state) {
         : t('profiles.partiallyEnabled');
     const targetState = allEnabled ? 'disable' : 'enable';
     const toggleLabel = allEnabled ? t('profiles.disableGroup') : t('profiles.enableGroup');
-    const isCollapsed = collapsedGroupSet.has(groupName);
+    const isCollapsed = isSearching ? false : collapsedGroupSet.has(groupName);
     const isFirst = groupIndex === 0;
     const isLast = groupIndex === totalGroups - 1;
 
-    const groupRuleIds = groupRules.map((r) => r.id);
+    const groupRuleIds = displayRules.map((r) => r.id);
     const areGroupRulesCollapsed = groupRuleIds.length > 0 && groupRuleIds.every((id) => collapsedRuleSet.has(id));
     const toggleGroupRulesLabel = areGroupRulesCollapsed ? t('profiles.expandGroupRules') : t('profiles.collapseGroupRules');
 
@@ -320,14 +353,14 @@ export function renderProfiles(state) {
               ${icon(isCollapsed ? 'chevronRight' : 'chevronDown')}
             </button>
             <div class="group-sort-actions" onclick="event.stopPropagation()">
-              <button class="group-sort-button" type="button" data-move-rule-group="${escapeHtml(groupName)}" data-direction="up" ${isFirst ? 'disabled' : ''} title="${t('profiles.moveGroupUp')}">↑</button>
-              <button class="group-sort-button" type="button" data-move-rule-group="${escapeHtml(groupName)}" data-direction="down" ${isLast ? 'disabled' : ''} title="${t('profiles.moveGroupDown')}">↓</button>
+              <button class="group-sort-button" type="button" data-move-rule-group="${escapeHtml(groupName)}" data-direction="up" ${isFirst || isSearching ? 'disabled' : ''} title="${t('profiles.moveGroupUp')}">↑</button>
+              <button class="group-sort-button" type="button" data-move-rule-group="${escapeHtml(groupName)}" data-direction="down" ${isLast || isSearching ? 'disabled' : ''} title="${t('profiles.moveGroupDown')}">↓</button>
             </div>
             <span class="group-title">${escapeHtml(groupName)}</span>
             <span class="group-meta">${t('profiles.groupSummary', { total: totalCount, enabled: enabledCount })} · ${statusText}</span>
           </div>
           <div class="command-rule-group-header__actions">
-            ${groupRules.length ? `
+            ${displayRules.length ? `
               <button class="group-action-button" type="button" data-toggle-group-rules-collapse="${escapeHtml(groupName)}" title="${toggleGroupRulesLabel}">
                 ${icon(areGroupRulesCollapsed ? 'chevronDown' : 'chevronRight')}<span>${toggleGroupRulesLabel}</span>
               </button>
@@ -344,8 +377,8 @@ export function renderProfiles(state) {
           </div>
         </header>
         <div class="command-rule-group-body">
-          ${groupRules.length
-            ? groupRules.map((rule) => renderRule(rule, rules.indexOf(rule), t, state.variables, collapsedRuleSet.has(rule.id))).join('')
+          ${displayRules.length
+            ? displayRules.map((rule) => renderRule(rule, rules.indexOf(rule), t, state.variables, collapsedRuleSet.has(rule.id))).join('')
             : `<div class="profile-empty" style="padding: var(--space-6);"><p>${t('profiles.noRulesHint')}</p><button class="outline-button" type="button" data-add-rule-in-group="${escapeHtml(groupName)}">${icon('plus')}<span>${t('profiles.addCommand')}</span></button></div>`}
         </div>
       </section>
@@ -397,6 +430,26 @@ export function renderProfiles(state) {
                 ${icon('shield')}<span>${t('profiles.groupOrderHint')}</span>
               </div>
             </div>
+            <div class="rules-search-toolbar">
+              <label class="search-field rules-search-field">
+                ${icon('search')}
+                <input
+                  type="search"
+                  data-rule-search-input
+                  value="${escapeHtml(state.ruleSearchQuery ?? '')}"
+                  placeholder="${t('profiles.searchRulesPlaceholder')}"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                ${state.ruleSearchQuery ? `<button type="button" class="rules-search-clear-btn" data-clear-rule-search title="${t('profiles.clearSearch')}">${icon('close')}</button>` : ''}
+              </label>
+              ${isSearching ? `
+                <div class="rules-search-summary">
+                  <span class="rules-search-count-tag">${t('profiles.searchMatchesSummary', { count: matchedRules.length, total: rules.length })}</span>
+                  <button type="button" class="rules-search-clear-link" data-clear-rule-search>${t('profiles.clearSearch')}</button>
+                </div>
+              ` : ''}
+            </div>
             <div class="rules-heading__actions">
               <button class="primary-button" type="button" data-open-add-group>${icon('plus')}<span>${t('profiles.addGroup')}</span></button>
               <button class="outline-button" type="button" data-add-rule>${icon('plus')}<span>${t('profiles.addCommand')}</span></button>
@@ -409,9 +462,16 @@ export function renderProfiles(state) {
             </div>
           </div>
 
-          ${groupOrder.length
-            ? groupOrder.map((groupName, idx) => renderGroupSection(groupName, groupedRules.get(groupName) ?? [], idx, groupOrder.length)).join('')
-            : `<div class="profile-empty">${icon('command')}<h3>${t('profiles.noRules')}</h3><p>${t('profiles.noRulesHint')}</p><button class="primary-button" type="button" data-open-add-group>${icon('plus')}<span>${t('profiles.addGroup')}</span></button><button class="outline-button" type="button" data-add-rule>${icon('plus')}${t('profiles.addCommand')}</button></div>`}
+          ${isSearching && visibleGroupOrder.length === 0
+            ? `<div class="profile-empty search-no-results">
+                ${icon('search')}
+                <h3>${t('profiles.noSearchMatches')}</h3>
+                <p>${t('profiles.noSearchMatchesHint', { query: escapeHtml(state.ruleSearchQuery) })}</p>
+                <button class="outline-button" type="button" data-clear-rule-search>${icon('undo')}<span>${t('profiles.clearSearch')}</span></button>
+              </div>`
+            : visibleGroupOrder.length
+              ? visibleGroupOrder.map((groupName, idx) => renderGroupSection(groupName, groupedRules.get(groupName) ?? [], idx, visibleGroupOrder.length)).join('')
+              : `<div class="profile-empty">${icon('command')}<h3>${t('profiles.noRules')}</h3><p>${t('profiles.noRulesHint')}</p><button class="primary-button" type="button" data-open-add-group>${icon('plus')}<span>${t('profiles.addGroup')}</span></button><button class="outline-button" type="button" data-add-rule>${icon('plus')}${t('profiles.addCommand')}</button></div>`}
           <datalist id="group-datalist">
             ${allGroups.map((group) => `<option value="${escapeHtml(group)}"></option>`).join('')}
           </datalist>
