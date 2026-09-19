@@ -432,7 +432,6 @@ class SimulatorService extends EventEmitter {
   replaceVariables(input = {}) {
     const variables = Array.isArray(input) ? input : input.variables;
     if (!Array.isArray(variables)) throw new Error('Variables payload must contain a variables array');
-    if (variables.length > 100) throw new Error('A maximum of 100 custom variables is supported');
     const normalized = variables.map(normalizeVariable);
     const names = new Set();
     for (const [index, variable] of normalized.entries()) {
@@ -454,7 +453,6 @@ class SimulatorService extends EventEmitter {
   }
 
   upsertVariable(input = {}) {
-    if (this.variables.length >= 100) throw new Error('A maximum of 100 custom variables is supported');
     const variable = normalizeVariable(input, 0);
     const variables = [...this.variables];
     const byId = variables.findIndex((item) => item.id === variable.id);
@@ -597,7 +595,6 @@ class SimulatorService extends EventEmitter {
   replaceCommandRules(input = {}) {
     const rules = Array.isArray(input) ? input : input.rules;
     if (!Array.isArray(rules)) throw new Error('Command rules payload must contain a rules array');
-    if (rules.length > 100) throw new Error('A maximum of 100 custom command rules is supported');
     const normalized = rules.map(normalizeCommandRule);
     this.validateCommandRules(normalized);
     fs.writeFileSync(this.rulesPath, JSON.stringify(normalized, null, 2));
@@ -615,7 +612,6 @@ class SimulatorService extends EventEmitter {
   }
 
   createCommandRule(input = {}) {
-    if (this.commandRules.length >= 100) throw new Error('A maximum of 100 custom command rules is supported');
     const rule = normalizeCommandRule(input, 0);
     if (this.commandRules.some((item) => item.id === rule.id)) throw new Error(`Command rule id ${rule.id} already exists`);
     const rules = [...this.commandRules, rule];

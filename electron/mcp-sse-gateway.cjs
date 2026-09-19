@@ -179,7 +179,7 @@ const RAW_TOOLS = [
   {
     name: 'monolith_replace_command_rules',
     description: 'Replace all command rules. The new rules apply to existing SSH sessions immediately.',
-    inputSchema: { type: 'object', properties: { rules: { type: 'array', maxItems: 500, items: RULE_SCHEMA } }, required: ['rules'], additionalProperties: false }
+    inputSchema: { type: 'object', properties: { rules: { type: 'array', items: RULE_SCHEMA } }, required: ['rules'], additionalProperties: false }
   },
   {
     name: 'monolith_create_command_rule',
@@ -204,7 +204,7 @@ const RAW_TOOLS = [
   {
     name: 'monolith_replace_variables',
     description: 'Replace all custom variables. New values apply to existing SSH sessions immediately.',
-    inputSchema: { type: 'object', properties: { variables: { type: 'array', maxItems: 500, items: VARIABLE_SCHEMA } }, required: ['variables'], additionalProperties: false }
+    inputSchema: { type: 'object', properties: { variables: { type: 'array', items: VARIABLE_SCHEMA } }, required: ['variables'], additionalProperties: false }
   },
   {
     name: 'monolith_upsert_variable',
